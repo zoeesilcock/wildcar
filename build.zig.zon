@@ -1,0 +1,17 @@
+.{
+    .name = .wildcar,
+    .version = "0.1.0",
+    .minimum_zig_version = "0.16.0",
+    .fingerprint = 0xfba2aade6f03c29b,
+    .dependencies = .{
+        .flint = .{
+            .url = "git+https://github.com/zoeesilcock/flint.git?ref=v0.11.0#f7647467ff7f45eac5e95cddfff8ae3a5f688431",
+            .hash = "flint-0.11.0-PsSSI33tAQBfA-UTkoIa_Fb9UBdS5uA5Y3jRPkG8IjA7",
+        },
+    },
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+        "src",
+    },
+}

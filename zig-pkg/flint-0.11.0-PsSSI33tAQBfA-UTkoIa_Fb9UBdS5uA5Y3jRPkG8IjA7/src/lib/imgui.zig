@@ -1,0 +1,170 @@
+//! Exposes the Imgui C API as well as backend support fo SDL3 Renderer and SDL3 GPU.
+//!
+//! Note that importing this module without the INTERNAL build_option set to true will give an empty struct that only
+//! contains a fake ImGuiContext type since that is needed for function signatures. The point of this is to make it a
+//! compile time error to use any internal functions in a release version. This is implemented in `flint.zig`.
+
+/// The Imgui C API, generated using dear_bindings.
+pub const c = @import("imgui_c");
+const sdl = @import("sdl.zig").c;
+
+/// The ImGuiContext type is used in function signatures. When INTERNAL is set to false the library exposes a fake
+/// version of this in the form of an anyopaque since the type is needed for function signatures.
+pub const ImGuiContext = c.ImGuiContext;
+
+const Backend = enum {
+    Renderer,
+    GPU,
+};
+
+extern fn ImGui_ImplSDL3_InitForOpenGL(window: ?*sdl.SDL_Window, sdl_gl_context: *anyopaque) bool;
+extern fn ImGui_ImplSDL3_InitForVulkan(window: ?*sdl.SDL_Window) bool;
+extern fn ImGui_ImplSDL3_InitForD3D(window: ?*sdl.SDL_Window) bool;
+extern fn ImGui_ImplSDL3_InitForMetal(window: ?*sdl.SDL_Window) bool;
+extern fn ImGui_ImplSDL3_InitForSDLRenderer(window: ?*sdl.SDL_Window, renderer: ?*sdl.SDL_Renderer) bool;
+extern fn ImGui_ImplSDL3_InitForSDLGPU(window: ?*sdl.SDL_Window) bool;
+extern fn ImGui_ImplSDL3_InitForOther(window: ?*sdl.SDL_Window) bool;
+extern fn ImGui_ImplSDL3_Shutdown() void;
+extern fn ImGui_ImplSDL3_NewFrame() void;
+extern fn ImGui_ImplSDL3_ProcessEvent(event: ?*sdl.SDL_Event) bool;
+
+extern fn ImGui_ImplSDLRenderer3_Init(renderer: ?*sdl.SDL_Renderer) bool;
+extern fn ImGui_ImplSDLRenderer3_Shutdown() void;
+extern fn ImGui_ImplSDLRenderer3_NewFrame() void;
+extern fn ImGui_ImplSDLRenderer3_RenderDrawData(draw_data: *const c.ImDrawData, renderer: ?*sdl.SDL_Renderer) void;
+
+const ImGui_ImplSDLGPU3_InitInfo = struct {
+    Device: ?*sdl.SDL_GPUDevice = null,
+    ColorTargetFormat: sdl.SDL_GPUTextureFormat = sdl.SDL_GPU_TEXTUREFORMAT_INVALID,
+    MSAASamples: sdl.SDL_GPUSampleCount = sdl.SDL_GPU_SAMPLECOUNT_1,
+    SwapchainComposition: sdl.SDL_GPUSwapchainComposition = sdl.SDL_GPU_SWAPCHAINCOMPOSITION_SDR,
+    PresentMode: sdl.SDL_GPUPresentMode = sdl.SDL_GPU_PRESENTMODE_VSYNC,
+};
+extern fn ImGui_ImplSDLGPU3_Init(info: ?*ImGui_ImplSDLGPU3_InitInfo) bool;
+extern fn ImGui_ImplSDLGPU3_Shutdown() void;
+extern fn ImGui_ImplSDLGPU3_NewFrame() void;
+extern fn ImGui_ImplSDLGPU3_PrepareDrawData(draw_data: ?*c.ImDrawData, command_buffer: ?*sdl.SDL_GPUCommandBuffer) void;
+extern fn ImGui_ImplSDLGPU3_RenderDrawData(draw_data: ?*c.ImDrawData, command_buffer: ?*sdl.SDL_GPUCommandBuffer, render_pass: ?*sdl.SDL_GPURenderPass, pipeline: ?*sdl.SDL_GPUGraphicsPipeline) void;
+
+pub var context: ?*ImGuiContext = null;
+var backend: Backend = .Renderer;
+
+/// Set the imgui context and backend, this is needed when using the dependency sets that manage the imgui
+/// lifecycle for you (all but `GameLib.Dependencies.Minimal`).
+pub fn setup(imgui_context: ?*ImGuiContext, imgui_backend: Backend) void {
+    backend = imgui_backend;
+    context = imgui_context;
+    c.ImGui_SetCurrentContext(context);
+}
+
+/// Initialize the SDL3 Renderer backend.
+/// Call this function when you game launches if you are managing the imgui lifecycle yourself.
+pub fn init(window: *sdl.SDL_Window, renderer: *sdl.SDL_Renderer, width: f32, height: f32) void {
+    setup(c.ImGui_CreateContext(null), .Renderer);
+    {
+        var im_io: *c.ImGuiIO = @ptrCast(c.ImGui_GetIO());
+        im_io.ConfigFlags =
+            c.ImGuiConfigFlags_NavEnableKeyboard |
+            c.ImGuiConfigFlags_NavEnableGamepad |
+            c.ImGuiConfigFlags_DockingEnable;
+        im_io.DisplaySize.x = width;
+        im_io.DisplaySize.y = height;
+    }
+
+    c.ImGui_StyleColorsDark(null);
+    _ = ImGui_ImplSDL3_InitForSDLRenderer(window, renderer);
+    _ = ImGui_ImplSDLRenderer3_Init(renderer);
+}
+
+/// Initialize the SDL3 GPU backend.
+/// Call this function when you game launches if you are managing the imgui lifecycle yourself.
+pub fn initGPU(window: *sdl.SDL_Window, device: *sdl.SDL_GPUDevice, width: f32, height: f32) void {
+    setup(c.ImGui_CreateContext(null), .GPU);
+    {
+        var im_io: *c.ImGuiIO = @ptrCast(c.ImGui_GetIO());
+        im_io.ConfigFlags =
+            c.ImGuiConfigFlags_NavEnableKeyboard |
+            c.ImGuiConfigFlags_NavEnableGamepad |
+            c.ImGuiConfigFlags_DockingEnable;
+        im_io.DisplaySize.x = width;
+        im_io.DisplaySize.y = height;
+    }
+
+    c.ImGui_StyleColorsDark(null);
+
+    var init_info: ImGui_ImplSDLGPU3_InitInfo = .{
+        .Device = device,
+        .ColorTargetFormat = sdl.SDL_GetGPUSwapchainTextureFormat(device, window),
+    };
+    _ = ImGui_ImplSDL3_InitForSDLGPU(window);
+    _ = ImGui_ImplSDLGPU3_Init(&init_info);
+}
+
+/// Shutdown the imgui backend.
+pub fn deinit() void {
+    ImGui_ImplSDL3_Shutdown();
+
+    switch (backend) {
+        .Renderer => ImGui_ImplSDLRenderer3_Shutdown(),
+        .GPU => ImGui_ImplSDLGPU3_Shutdown(),
+    }
+
+    c.ImGui_DestroyContext(context);
+}
+
+/// Process SDL events, call this with the event received via `SDL_PollEvent`. Returns a boolean which tells you if
+/// Imgui used the event.
+pub fn processEvent(event: *sdl.SDL_Event) bool {
+    _ = ImGui_ImplSDL3_ProcessEvent(event);
+    const im_io = c.ImGui_GetIO()[0];
+    const is_key_event =
+        event.type == sdl.SDL_EVENT_KEY_DOWN or
+        event.type == sdl.SDL_EVENT_KEY_UP;
+    const is_mouse_event =
+        event.type == sdl.SDL_EVENT_MOUSE_MOTION or
+        event.type == sdl.SDL_EVENT_MOUSE_BUTTON_DOWN or
+        event.type == sdl.SDL_EVENT_MOUSE_BUTTON_UP;
+
+    return (is_mouse_event and im_io.WantCaptureMouse) or
+        (is_key_event and im_io.WantCaptureKeyboard);
+}
+
+/// Starts a new frame. Call this on every frame, before making any Imgui windows.
+pub fn newFrame() void {
+    switch (backend) {
+        .Renderer => ImGui_ImplSDLRenderer3_NewFrame(),
+        .GPU => ImGui_ImplSDLGPU3_NewFrame(),
+    }
+    ImGui_ImplSDL3_NewFrame();
+    c.ImGui_NewFrame();
+
+    _ = c.ImGui_DockSpaceOverViewportEx(0, c.ImGui_GetMainViewport(), c.ImGuiDockNodeFlags_PassthruCentralNode, null);
+}
+
+/// Draws Imgui windows to the screen, call this after all your Imgui windows.
+pub fn render(renderer: *sdl.SDL_Renderer) void {
+    c.ImGui_Render();
+    ImGui_ImplSDLRenderer3_RenderDrawData(c.ImGui_GetDrawData(), renderer);
+}
+
+/// Draws Imgui windows to the screen, call this after all your Imgui windows.
+pub fn renderGPU(command_buffer: ?*sdl.SDL_GPUCommandBuffer, swapchain_texture: *sdl.SDL_GPUTexture) void {
+    c.ImGui_Render();
+
+    const draw_data: *c.ImDrawData = c.ImGui_GetDrawData();
+    ImGui_ImplSDLGPU3_PrepareDrawData(draw_data, command_buffer);
+
+    const target_info: sdl.SDL_GPUColorTargetInfo = .{
+        .texture = swapchain_texture,
+        .load_op = sdl.SDL_GPU_LOADOP_LOAD,
+        .store_op = sdl.SDL_GPU_STOREOP_STORE,
+        .mip_level = 0,
+        .layer_or_depth_plane = 0,
+        .cycle = false,
+    };
+    const render_pass: ?*sdl.SDL_GPURenderPass = sdl.SDL_BeginGPURenderPass(command_buffer, &target_info, 1, null);
+
+    ImGui_ImplSDLGPU3_RenderDrawData(draw_data, command_buffer, render_pass, null);
+
+    sdl.SDL_EndGPURenderPass(render_pass);
+}

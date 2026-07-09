@@ -1,0 +1,28 @@
+.{
+    .name = .flint,
+    .version = "0.11.0",
+    .minimum_zig_version = "0.16.0",
+    .fingerprint = 0x4ab03ee82392c43e,
+    .dependencies = .{
+        .sdl = .{
+            .url = "git+https://github.com/castholm/SDL.git#v0.5.0+3.4.8",
+            .hash = "sdl-0.5.0+3.4.8-SDL--k4DpgH323IfF6cEaGzKUdtUQv1azbBmmcv0RMAu",
+            .lazy = true,
+        },
+        .imgui = .{
+            .url = "git+https://github.com/ocornut/imgui.git#v1.92.8-docking",
+            .hash = "N-V-__8AAKmrgQA-iEFHovAwDtF8olu0VkgmKg_3T15wRPzJ",
+            .lazy = true,
+        },
+        .dear_bindings = .{
+            .url = "https://github.com/dearimgui/dear_bindings/releases/download/DearBindings_v0.21_ImGui_v1.92.8-docking/DearBindings_v0.21_ImGui_v1.92.8-docking.zip",
+            .hash = "N-V-__8AAHjIWwRO78zqgyaTG2ySwMVTr8uoNcPQRwY6NHKC",
+            .lazy = true,
+        },
+    },
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+        "src",
+    },
+}
