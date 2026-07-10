@@ -19,12 +19,6 @@ const Y = math.Y;
 const Z = math.Z;
 const GameLib = flint.GameLib;
 const FPSWindow = flint.internal.FPSWindow;
-const ScreenEffect = enum(u32) {
-    None = 0,
-    VerticalWave,
-    HorizontalWave,
-    DoubleWaveAllTheWayAcrossTheSky,
-};
 
 pub const State = struct {
     dependencies: GameLib.Dependencies.Full3D,
@@ -49,7 +43,6 @@ pub const State = struct {
     depth_stencil_texture: *sdl.SDL_GPUTexture = undefined,
 
     fullscreen: bool = false,
-    screen_effect: ScreenEffect = .None,
 
     paused: bool = false,
     time: u64 = 0,
@@ -80,7 +73,6 @@ pub const State = struct {
     pub fn getFragmentUniforms(self: *State) FragmentUniforms {
         return .{
             .time = self.currentTime(),
-            .screen_effect = @intFromEnum(self.screen_effect),
         };
     }
 };
@@ -242,7 +234,6 @@ const QUAD_INDICES: []const u16 = &.{
 
 const FragmentUniforms = struct {
     time: f32,
-    screen_effect: u32,
 };
 
 var settings: GameLib.Settings = .{
@@ -352,14 +343,6 @@ pub export fn processInput(state_ptr: GameLib.GameStatePtr) bool {
                         state.internal.inspect_game_state = !state.internal.inspect_game_state;
                     }
                 },
-                sdl.SDLK_E => {
-                    var next_effect = @intFromEnum(state.screen_effect) + 1;
-                    if (next_effect >= @typeInfo(ScreenEffect).@"enum".field_names.len) {
-                        next_effect = 0;
-                    }
-
-                    state.screen_effect = @enumFromInt(next_effect);
-                },
                 else => {},
             }
         }
@@ -382,12 +365,6 @@ pub export fn tick(state_ptr: GameLib.GameStatePtr, time: u64, delta_time: u64) 
 
     if (INTERNAL) {
         state.dependencies.internal.fps_window.addFrameTime(sdl.SDL_GetPerformanceCounter());
-    }
-
-    const test_entity = &state.entities.items[0];
-    test_entity.rotation[Y] += 1 * state.deltaTime();
-    if (test_entity.rotation[Y] > 360) {
-        test_entity.rotation[Y] -= 360;
     }
 }
 

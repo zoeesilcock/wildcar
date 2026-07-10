@@ -1,12 +1,12 @@
 .{
     .name = .wildcar,
     .version = "0.1.0",
-    .minimum_zig_version = "0.16.0",
+    .minimum_zig_version = "0.17.0-dev.947+36069a2a7",
     .fingerprint = 0xfba2aade6f03c29b,
     .dependencies = .{
         .flint = .{
-            .url = "git+https://github.com/zoeesilcock/flint.git?ref=v0.11.0#f7647467ff7f45eac5e95cddfff8ae3a5f688431",
-            .hash = "flint-0.11.0-PsSSI33tAQBfA-UTkoIa_Fb9UBdS5uA5Y3jRPkG8IjA7",
+            .url = "git+https://github.com/zoeesilcock/flint.git#e7819f01aa37d4dfc40fcbf293b9ef61a61e2e89",
+            .hash = "flint-0.11.0-PsSSI0L4AQD-8rY2uIc7V0J8HnXwF9qjUVYUQ6oX-mHD",
         },
     },
     .paths = .{

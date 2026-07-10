@@ -52,7 +52,7 @@ pub fn build(b: *std.Build) !void {
         .optimize = flint_options.optimize,
     });
     const math_mod = b.createModule(.{
-        .root_source_file = b.path("../math.zig"),
+        .root_source_file = b.path("src/math.zig"),
         .target = flint_options.target,
         .optimize = flint_options.optimize,
         .imports = &.{
