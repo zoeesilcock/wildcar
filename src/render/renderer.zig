@@ -77,10 +77,10 @@ pub fn beginFrame(state: *State) FrameContext {
         &depth_stencil_target_info,
     );
     sdl.SDL_BindGPUGraphicsPipeline(context.render_pass, state.fill_pipeline);
-    sdl.SDL_BindGPUVertexBuffers(context.render_pass, 0, &.{ .buffer = state.vertex_buffer, .offset = 0 }, 1);
+    sdl.SDL_BindGPUVertexBuffers(context.render_pass, 0, &.{ .buffer = state.cube_mesh.vertex_buffer, .offset = 0 }, 1);
     sdl.SDL_BindGPUIndexBuffer(
         context.render_pass,
-        &.{ .buffer = state.index_buffer, .offset = 0 },
+        &.{ .buffer = state.cube_mesh.index_buffer, .offset = 0 },
         sdl.SDL_GPU_INDEXELEMENTSIZE_16BIT,
     );
 
@@ -90,7 +90,7 @@ pub fn beginFrame(state: *State) FrameContext {
 pub fn drawCube(state: *State, context: *FrameContext, entity: Entity) void {
     var mvp = state.camera.calculateMVPMatrix(entity);
     sdl.SDL_PushGPUVertexUniformData(context.command_buffer, 0, &mvp, @sizeOf(Matrix4x4));
-    sdl.SDL_DrawGPUIndexedPrimitives(context.render_pass, pipeline.INDICES.len, 1, 0, 0, 0);
+    sdl.SDL_DrawGPUIndexedPrimitives(context.render_pass, state.cube_mesh.index_count, 1, 0, 0, 0);
 }
 
 pub fn endFrame(state: *State, context: *FrameContext) void {
@@ -121,10 +121,10 @@ pub fn endFrame(state: *State, context: *FrameContext) void {
             @sizeOf(FragmentUniforms),
         );
         sdl.SDL_BindGPUGraphicsPipeline(screen_render_pass, state.screen_pipeline);
-        sdl.SDL_BindGPUVertexBuffers(screen_render_pass, 0, &.{ .buffer = state.quad_vertex_buffer, .offset = 0 }, 1);
+        sdl.SDL_BindGPUVertexBuffers(screen_render_pass, 0, &.{ .buffer = state.quad_mesh.vertex_buffer, .offset = 0 }, 1);
         sdl.SDL_BindGPUIndexBuffer(
             screen_render_pass,
-            &.{ .buffer = state.quad_index_buffer, .offset = 0 },
+            &.{ .buffer = state.quad_mesh.index_buffer, .offset = 0 },
             sdl.SDL_GPU_INDEXELEMENTSIZE_16BIT,
         );
         sdl.SDL_BindGPUFragmentSamplers(
@@ -136,7 +136,7 @@ pub fn endFrame(state: *State, context: *FrameContext) void {
             },
             1,
         );
-        sdl.SDL_DrawGPUIndexedPrimitives(screen_render_pass, pipeline.QUAD_INDICES.len, 1, 0, 0, 0);
+        sdl.SDL_DrawGPUIndexedPrimitives(screen_render_pass, state.quad_mesh.index_count, 1, 0, 0, 0);
         sdl.SDL_EndGPURenderPass(screen_render_pass);
     }
     command_buffer_submitted = sdl.SDL_SubmitGPUCommandBuffer(context.command_buffer);

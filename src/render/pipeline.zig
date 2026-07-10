@@ -1,6 +1,7 @@
 const std = @import("std");
 const flint = @import("flint");
 const sdl = flint.sdl.c;
+const buffer = @import("buffer.zig");
 
 // Types.
 const State = @import("../root.zig").State;
@@ -168,25 +169,6 @@ pub fn init(state: *State) void {
         @panic("Failed to create line pipeline.");
     }
 
-    var buffer_create_info: sdl.SDL_GPUBufferCreateInfo = .{
-        .usage = sdl.SDL_GPU_BUFFERUSAGE_VERTEX,
-        .size = VERTICES.len * @sizeOf(PositionColorVertex),
-    };
-    if (sdl.SDL_CreateGPUBuffer(state.device, &buffer_create_info)) |buffer| {
-        state.vertex_buffer = buffer;
-    } else {
-        @panic("Failed to create vertex buffer.");
-    }
-    buffer_create_info = .{
-        .usage = sdl.SDL_GPU_BUFFERUSAGE_INDEX,
-        .size = INDICES.len * @sizeOf(u16),
-    };
-    if (sdl.SDL_CreateGPUBuffer(state.device, &buffer_create_info)) |buffer| {
-        state.index_buffer = buffer;
-    } else {
-        @panic("Failed to create index buffer.");
-    }
-
     const screen_vertex_buffer_descriptions = [_]sdl.SDL_GPUVertexBufferDescription{
         .{
             .slot = 0,
@@ -230,27 +212,8 @@ pub fn init(state: *State) void {
         @panic("Failed to create screen pipeline.");
     }
 
-    buffer_create_info = .{
-        .usage = sdl.SDL_GPU_BUFFERUSAGE_VERTEX,
-        .size = QUAD.len * @sizeOf(PositionUVVertex),
-    };
-    if (sdl.SDL_CreateGPUBuffer(state.device, &buffer_create_info)) |buffer| {
-        state.quad_vertex_buffer = buffer;
-    } else {
-        @panic("Failed to create vertex buffer.");
-    }
-    buffer_create_info = .{
-        .usage = sdl.SDL_GPU_BUFFERUSAGE_INDEX,
-        .size = QUAD_INDICES.len * @sizeOf(u16),
-    };
-    if (sdl.SDL_CreateGPUBuffer(state.device, &buffer_create_info)) |buffer| {
-        state.quad_index_buffer = buffer;
-    } else {
-        @panic("Failed to create index buffer.");
-    }
-
-    submitVertexData(state);
-    submitQuadData(state);
+    state.quad_mesh = buffer.upload(state, PositionUVVertex, QUAD, QUAD_INDICES);
+    state.cube_mesh = buffer.upload(state, PositionColorVertex, VERTICES, INDICES);
 }
 
 pub fn deinit(state: *State) void {
@@ -258,10 +221,10 @@ pub fn deinit(state: *State) void {
     sdl.SDL_ReleaseGPUGraphicsPipeline(state.device, state.line_pipeline);
     sdl.SDL_ReleaseGPUGraphicsPipeline(state.device, state.screen_pipeline);
 
-    sdl.SDL_ReleaseGPUBuffer(state.device, state.vertex_buffer);
-    sdl.SDL_ReleaseGPUBuffer(state.device, state.index_buffer);
-    sdl.SDL_ReleaseGPUBuffer(state.device, state.quad_vertex_buffer);
-    sdl.SDL_ReleaseGPUBuffer(state.device, state.quad_index_buffer);
+    sdl.SDL_ReleaseGPUBuffer(state.device, state.cube_mesh.vertex_buffer);
+    sdl.SDL_ReleaseGPUBuffer(state.device, state.cube_mesh.index_buffer);
+    sdl.SDL_ReleaseGPUBuffer(state.device, state.quad_mesh.vertex_buffer);
+    sdl.SDL_ReleaseGPUBuffer(state.device, state.quad_mesh.index_buffer);
 
     sdl.SDL_ReleaseGPUSampler(state.device, state.render_texture_sampler);
 }
@@ -324,125 +287,4 @@ fn loadShader(
     }
 
     return shader;
-}
-
-fn submitQuadData(state: *State) void {
-    var transfer_buffer_create_info: sdl.SDL_GPUTransferBufferCreateInfo = .{
-        .usage = sdl.SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD,
-        .size = @sizeOf(PositionUVVertex) * QUAD.len + @sizeOf(u16) * QUAD_INDICES.len,
-    };
-    const opt_transfer_buffer: ?*sdl.SDL_GPUTransferBuffer = sdl.SDL_CreateGPUTransferBuffer(
-        state.device,
-        &transfer_buffer_create_info,
-    );
-
-    if (opt_transfer_buffer) |transfer_buffer| {
-        if (sdl.SDL_MapGPUTransferBuffer(state.device, transfer_buffer, false)) |data| {
-            var transfer_data: [*]PositionUVVertex = @ptrCast(@alignCast(data));
-            @memcpy(transfer_data[0..QUAD.len], QUAD);
-
-            var transfer_data2: [*]u16 = @ptrCast(@alignCast(transfer_data + QUAD.len));
-            @memcpy(transfer_data2[0..QUAD_INDICES.len], QUAD_INDICES);
-
-            sdl.SDL_UnmapGPUTransferBuffer(state.device, transfer_buffer);
-
-            const upload_command_buffer: ?*sdl.SDL_GPUCommandBuffer = sdl.SDL_AcquireGPUCommandBuffer(state.device);
-            const copy_pass: ?*sdl.SDL_GPUCopyPass = sdl.SDL_BeginGPUCopyPass(upload_command_buffer);
-            sdl.SDL_UploadToGPUBuffer(
-                copy_pass,
-                &.{
-                    .transfer_buffer = transfer_buffer,
-                    .offset = 0,
-                },
-                &.{
-                    .buffer = state.quad_vertex_buffer,
-                    .offset = 0,
-                    .size = QUAD.len * @sizeOf(PositionUVVertex),
-                },
-                false,
-            );
-            sdl.SDL_UploadToGPUBuffer(
-                copy_pass,
-                &.{
-                    .transfer_buffer = transfer_buffer,
-                    .offset = QUAD.len * @sizeOf(PositionUVVertex),
-                },
-                &.{
-                    .buffer = state.quad_index_buffer,
-                    .offset = 0,
-                    .size = QUAD_INDICES.len * @sizeOf(u16),
-                },
-                false,
-            );
-
-            sdl.SDL_EndGPUCopyPass(copy_pass);
-            _ = sdl.SDL_SubmitGPUCommandBuffer(upload_command_buffer);
-            _ = sdl.SDL_WaitForGPUIdle(state.device);
-            sdl.SDL_ReleaseGPUTransferBuffer(state.device, transfer_buffer);
-        } else {
-            @panic("Failed to map transfer buffer to GPU.");
-        }
-    } else {
-        @panic("Failed to create transfer buffer.");
-    }
-}
-
-fn submitVertexData(state: *State) void {
-    var transfer_buffer_create_info: sdl.SDL_GPUTransferBufferCreateInfo = .{
-        .usage = sdl.SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD,
-        .size = @sizeOf(PositionColorVertex) * VERTICES.len + @sizeOf(u16) * INDICES.len,
-    };
-    const opt_transfer_buffer: ?*sdl.SDL_GPUTransferBuffer = sdl.SDL_CreateGPUTransferBuffer(
-        state.device,
-        &transfer_buffer_create_info,
-    );
-
-    if (opt_transfer_buffer) |transfer_buffer| {
-        if (sdl.SDL_MapGPUTransferBuffer(state.device, transfer_buffer, false)) |data| {
-            var transfer_data: [*]PositionColorVertex = @ptrCast(@alignCast(data));
-            @memcpy(transfer_data[0..VERTICES.len], VERTICES);
-
-            var transfer_data2: [*]u16 = @ptrCast(@alignCast(transfer_data + VERTICES.len));
-            @memcpy(transfer_data2[0..INDICES.len], INDICES);
-
-            sdl.SDL_UnmapGPUTransferBuffer(state.device, transfer_buffer);
-
-            const upload_command_buffer: ?*sdl.SDL_GPUCommandBuffer = sdl.SDL_AcquireGPUCommandBuffer(state.device);
-            const copy_pass: ?*sdl.SDL_GPUCopyPass = sdl.SDL_BeginGPUCopyPass(upload_command_buffer);
-            sdl.SDL_UploadToGPUBuffer(
-                copy_pass,
-                &.{
-                    .transfer_buffer = transfer_buffer,
-                    .offset = 0,
-                },
-                &.{
-                    .buffer = state.vertex_buffer,
-                    .offset = 0,
-                    .size = VERTICES.len * @sizeOf(PositionColorVertex),
-                },
-                false,
-            );
-            sdl.SDL_UploadToGPUBuffer(
-                copy_pass,
-                &.{
-                    .transfer_buffer = transfer_buffer,
-                    .offset = VERTICES.len * @sizeOf(PositionColorVertex),
-                },
-                &.{
-                    .buffer = state.index_buffer,
-                    .offset = 0,
-                    .size = INDICES.len * @sizeOf(u16),
-                },
-                false,
-            );
-
-            sdl.SDL_EndGPUCopyPass(copy_pass);
-            _ = sdl.SDL_SubmitGPUCommandBuffer(upload_command_buffer);
-            sdl.SDL_ReleaseGPUTransferBuffer(state.device, transfer_buffer);
-        } else {
-            @panic("Failed to map transfer buffer to GPU.");
-        }
-    } else {
-        @panic("Failed to create transfer buffer.");
-    }
 }

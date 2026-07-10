@@ -7,6 +7,7 @@ const math = @import("math");
 const pipeline = @import("render/pipeline.zig");
 const device = @import("render/device.zig");
 const renderer = @import("render/renderer.zig");
+const render_buffer = @import("render/buffer.zig");
 const camera = @import("render/camera.zig");
 
 const INTERNAL: bool = @import("build_options").internal;
@@ -30,10 +31,10 @@ pub const State = struct {
     fill_pipeline: *sdl.SDL_GPUGraphicsPipeline = undefined,
     line_pipeline: *sdl.SDL_GPUGraphicsPipeline = undefined,
     screen_pipeline: *sdl.SDL_GPUGraphicsPipeline = undefined,
-    vertex_buffer: *sdl.SDL_GPUBuffer = undefined,
-    index_buffer: *sdl.SDL_GPUBuffer = undefined,
-    quad_vertex_buffer: *sdl.SDL_GPUBuffer = undefined,
-    quad_index_buffer: *sdl.SDL_GPUBuffer = undefined,
+
+    quad_mesh: render_buffer.MeshBuffer = undefined,
+    cube_mesh: render_buffer.MeshBuffer = undefined,
+
     render_texture_format: sdl.SDL_GPUTextureFormat = undefined,
     render_texture_sample_count: sdl.SDL_GPUSampleCount = sdl.SDL_GPU_SAMPLECOUNT_1,
     render_texture: *sdl.SDL_GPUTexture = undefined,
