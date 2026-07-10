@@ -1,6 +1,7 @@
 const math = @import("math");
 const flint = @import("flint");
 const sdl = flint.sdl.c;
+const game = @import("../root.zig");
 
 // Types.
 const Vector2 = math.Vector2;
@@ -9,7 +10,7 @@ const Matrix4x4 = math.Matrix4x4;
 const X = math.X;
 const Y = math.Y;
 const Z = math.Z;
-const Entity = @import("../root.zig").Entity;
+const Entity = game.Entity;
 
 pub const Camera = struct {
     position: Vector3,

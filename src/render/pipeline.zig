@@ -2,9 +2,10 @@ const std = @import("std");
 const flint = @import("flint");
 const sdl = flint.sdl.c;
 const buffer = @import("buffer.zig");
+const game = @import("../root.zig");
 
 // Types.
-const State = @import("../root.zig").State;
+const State = game.State;
 
 const PositionColorVertex = struct {
     x: f32,

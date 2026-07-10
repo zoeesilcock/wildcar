@@ -2,9 +2,10 @@ const std = @import("std");
 const flint = @import("flint");
 const sdl = flint.sdl.c;
 const sdl_utils = flint.sdl;
+const game = @import("../root.zig");
 
 // Types.
-const State = @import("../root.zig").State;
+const State = game.State;
 const FrameContext = @import("renderer.zig").FrameContext;
 
 pub fn init(state: *State) void {

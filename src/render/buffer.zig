@@ -2,8 +2,10 @@ const std = @import("std");
 const flint = @import("flint");
 const sdl = flint.sdl.c;
 const sdl_utils = flint.sdl;
+const game = @import("../root.zig");
 
-const State = @import("../root.zig").State;
+// Types.
+const State = game.State;
 
 pub const MeshBuffer = struct {
     vertex_buffer: *sdl.SDL_GPUBuffer,
