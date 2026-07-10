@@ -4,11 +4,7 @@ const sdl_utils = flint.sdl;
 const sdl = flint.sdl.c;
 const imgui = flint.imgui;
 const math = @import("math");
-const pipeline = @import("render/pipeline.zig");
-const device = @import("render/device.zig");
 const renderer = @import("render/renderer.zig");
-const render_buffer = @import("render/buffer.zig");
-const camera = @import("render/camera.zig");
 
 const INTERNAL: bool = @import("build_options").internal;
 
@@ -32,8 +28,8 @@ pub const State = struct {
     line_pipeline: *sdl.SDL_GPUGraphicsPipeline = undefined,
     screen_pipeline: *sdl.SDL_GPUGraphicsPipeline = undefined,
 
-    quad_mesh: render_buffer.MeshBuffer = undefined,
-    cube_mesh: render_buffer.MeshBuffer = undefined,
+    quad_mesh: renderer.MeshBuffer = undefined,
+    cube_mesh: renderer.MeshBuffer = undefined,
 
     render_texture_format: sdl.SDL_GPUTextureFormat = undefined,
     render_texture_sample_count: sdl.SDL_GPUSampleCount = sdl.SDL_GPU_SAMPLECOUNT_1,
@@ -50,7 +46,7 @@ pub const State = struct {
     delta_time: u64 = 0,
     delta_time_actual: u64 = 0,
 
-    camera: camera.Camera,
+    camera: renderer.Camera,
     entities: std.ArrayList(Entity),
 
     // Internal.
@@ -188,8 +184,7 @@ pub export fn processInput(state_ptr: GameLib.GameStatePtr) bool {
         }
 
         if (event.type == sdl.SDL_EVENT_WINDOW_RESIZED) {
-            device.deinitWindowSize(state);
-            device.initWindowSize(state, &settings.window_width, &settings.window_height);
+            renderer.reinitWindowSize(state, &settings);
         }
     }
 

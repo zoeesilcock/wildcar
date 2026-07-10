@@ -10,6 +10,8 @@ const game = @import("../root.zig");
 const INTERNAL: bool = @import("build_options").internal;
 
 // Types.
+pub const MeshBuffer = @import("buffer.zig").MeshBuffer;
+pub const Camera = @import("camera.zig").Camera;
 const State = game.State;
 const Settings = flint.GameLib.Settings;
 const Entity = game.Entity;
@@ -39,6 +41,11 @@ pub fn init(state: *State, settings: *Settings) void {
 pub fn deinit(state: *State) void {
     pipeline.deinit(state);
     device.deinitWindowSize(state);
+}
+
+pub fn reinitWindowSize(state: *State, settings: *Settings) void {
+    device.deinitWindowSize(state);
+    device.initWindowSize(state, &settings.window_width, &settings.window_height);
 }
 
 pub fn beginFrame(state: *State) FrameContext {
