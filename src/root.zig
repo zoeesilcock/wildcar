@@ -16,8 +16,14 @@ pub const std_options: std.Options = .{
 // Types.
 const Transform = math.Transform;
 const Color = math.Color;
+const Vector2 = math.Vector2;
 const GameLib = flint.GameLib;
 const FPSWindow = flint.internal.FPSWindow;
+
+const CameraMode = enum(u32) {
+    Orbit,
+    Free,
+};
 
 pub const State = struct {
     dependencies: GameLib.Dependencies.Full3D,
@@ -35,6 +41,10 @@ pub const State = struct {
 
     camera: renderer.Camera,
     entities: std.ArrayList(Entity),
+
+    camera_mode: CameraMode = .Orbit,
+
+    input: Input = .{},
 
     // Internal.
     internal: if (INTERNAL) extern struct {
@@ -61,7 +71,26 @@ pub const State = struct {
     }
 };
 
-pub const Entity = struct {
+const Input = struct {
+    mouse_position: Vector2 = .{ 0, 0 },
+    mouse_delta: Vector2 = .{ 0, 0 },
+
+    left_mouse_down: bool = false,
+    left_mouse_pressed: bool = false,
+    left_mouse_last_time: u64 = 0,
+
+    right_mouse_down: bool = false,
+    right_mouse_pressed: bool = false,
+    right_mouse_last_time: u64 = 0,
+
+    pub fn reset(self: *Input) void {
+        self.mouse_delta = .{ 0, 0 };
+        self.left_mouse_pressed = false;
+        self.right_mouse_pressed = false;
+    }
+};
+
+const Entity = struct {
     transform: Transform = .{},
     color: Color = .{ 0.9, 0.3, 0.2, 1 },
 };
@@ -142,6 +171,8 @@ pub export fn reloaded(state_ptr: GameLib.GameStatePtr, imgui_context: ?*imgui.I
 pub export fn processInput(state_ptr: GameLib.GameStatePtr) bool {
     const state: *State = @ptrCast(@alignCast(state_ptr));
 
+    state.input.reset();
+
     var continue_running: bool = true;
     var event: sdl.SDL_Event = undefined;
     while (sdl.SDL_PollEvent(&event)) {
@@ -150,6 +181,7 @@ pub export fn processInput(state_ptr: GameLib.GameStatePtr) bool {
             continue;
         }
 
+        // Keyboard.
         if (event.type == sdl.SDL_EVENT_QUIT or
             (event.type == sdl.SDL_EVENT_KEY_DOWN and event.key.key == sdl.SDLK_ESCAPE))
         {
@@ -177,10 +209,43 @@ pub export fn processInput(state_ptr: GameLib.GameStatePtr) bool {
                             !state.dependencies.internal.memory_usage_window.visible;
                     }
                 },
+                sdl.SDLK_F3 => {
+                    if (INTERNAL) {
+                        var mode: u32 = @intFromEnum(state.camera_mode) + 1;
+                        if (mode >= @typeInfo(CameraMode).@"enum".field_names.len) {
+                            mode = 0;
+                        }
+                        state.camera_mode = @enumFromInt(mode);
+                    }
+                },
                 sdl.SDLK_G => {
                     if (INTERNAL) {
                         state.internal.inspect_game_state = !state.internal.inspect_game_state;
                     }
+                },
+                else => {},
+            }
+        }
+
+        // Mouse movement.
+        if (event.type == sdl.SDL_EVENT_MOUSE_MOTION) {
+            const new_position: Vector2 = .{ event.motion.x, event.motion.y };
+            state.input.mouse_delta = state.input.mouse_position - new_position;
+            state.input.mouse_position = new_position;
+        }
+
+        // Mouse buttons.
+        if (event.type == sdl.SDL_EVENT_MOUSE_BUTTON_DOWN or event.type == sdl.SDL_EVENT_MOUSE_BUTTON_UP) {
+            const is_down = event.type == sdl.SDL_EVENT_MOUSE_BUTTON_DOWN;
+
+            switch (event.button.button) {
+                1 => {
+                    state.input.left_mouse_pressed = (state.input.left_mouse_down and !is_down);
+                    state.input.left_mouse_down = is_down;
+                },
+                3 => {
+                    state.input.right_mouse_pressed = (state.input.right_mouse_down and !is_down);
+                    state.input.right_mouse_down = is_down;
                 },
                 else => {},
             }
