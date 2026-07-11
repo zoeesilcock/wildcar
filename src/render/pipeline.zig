@@ -3,80 +3,12 @@ const flint = @import("flint");
 const sdl = flint.sdl.c;
 const renderer = @import("renderer.zig");
 const buffer = @import("buffer.zig");
+const mesh = @import("mesh.zig");
 
 // Types.
 const RendererContext = renderer.RendererContext;
-
-const PositionColorVertex = struct {
-    x: f32,
-    y: f32,
-    z: f32,
-    r: u8,
-    g: u8,
-    b: u8,
-    a: u8,
-};
-
-pub const PositionUVVertex = struct {
-    x: f32,
-    y: f32,
-    z: f32,
-    u: f32,
-    v: f32,
-};
-
-const VERTICES: []const PositionColorVertex = &.{
-    .{ .x = -1, .y = -1, .z = -1, .r = 255, .g = 0, .b = 0, .a = 255 },
-    .{ .x = 1, .y = -1, .z = -1, .r = 255, .g = 0, .b = 0, .a = 255 },
-    .{ .x = 1, .y = 1, .z = -1, .r = 255, .g = 0, .b = 0, .a = 255 },
-    .{ .x = -1, .y = 1, .z = -1, .r = 255, .g = 0, .b = 0, .a = 255 },
-
-    .{ .x = -1, .y = -1, .z = 1, .r = 0, .g = 255, .b = 0, .a = 255 },
-    .{ .x = 1, .y = -1, .z = 1, .r = 0, .g = 255, .b = 0, .a = 255 },
-    .{ .x = 1, .y = 1, .z = 1, .r = 0, .g = 255, .b = 0, .a = 255 },
-    .{ .x = -1, .y = 1, .z = 1, .r = 0, .g = 255, .b = 0, .a = 255 },
-
-    .{ .x = -1, .y = -1, .z = -1, .r = 0, .g = 0, .b = 255, .a = 255 },
-    .{ .x = -1, .y = 1, .z = -1, .r = 0, .g = 0, .b = 255, .a = 255 },
-    .{ .x = -1, .y = 1, .z = 1, .r = 0, .g = 0, .b = 255, .a = 255 },
-    .{ .x = -1, .y = -1, .z = 1, .r = 0, .g = 0, .b = 255, .a = 255 },
-
-    .{ .x = 1, .y = -1, .z = -1, .r = 200, .g = 0, .b = 200, .a = 255 },
-    .{ .x = 1, .y = 1, .z = -1, .r = 200, .g = 0, .b = 200, .a = 255 },
-    .{ .x = 1, .y = 1, .z = 1, .r = 200, .g = 0, .b = 200, .a = 255 },
-    .{ .x = 1, .y = -1, .z = 1, .r = 200, .g = 0, .b = 200, .a = 255 },
-
-    .{ .x = -1, .y = -1, .z = -1, .r = 200, .g = 200, .b = 0, .a = 255 },
-    .{ .x = -1, .y = -1, .z = 1, .r = 200, .g = 200, .b = 0, .a = 255 },
-    .{ .x = 1, .y = -1, .z = 1, .r = 200, .g = 200, .b = 0, .a = 255 },
-    .{ .x = 1, .y = -1, .z = -1, .r = 200, .g = 200, .b = 0, .a = 255 },
-
-    .{ .x = -1, .y = 1, .z = -1, .r = 0, .g = 200, .b = 200, .a = 255 },
-    .{ .x = -1, .y = 1, .z = 1, .r = 0, .g = 200, .b = 200, .a = 255 },
-    .{ .x = 1, .y = 1, .z = 1, .r = 0, .g = 200, .b = 200, .a = 255 },
-    .{ .x = 1, .y = 1, .z = -1, .r = 0, .g = 200, .b = 200, .a = 255 },
-};
-
-pub const INDICES: []const u16 = &.{
-    0,  1,  2,  0,  2,  3,
-    6,  5,  4,  7,  6,  4,
-    8,  9,  10, 8,  10, 11,
-    14, 13, 12, 15, 14, 12,
-    16, 17, 18, 16, 18, 19,
-    22, 21, 20, 23, 22, 20,
-};
-
-pub const QUAD: []const PositionUVVertex = &.{
-    .{ .x = -1, .y = -1, .z = 0, .u = 0, .v = 1 },
-    .{ .x = 1, .y = -1, .z = 0, .u = 1, .v = 1 },
-    .{ .x = -1, .y = 1, .z = 0, .u = 0, .v = 0 },
-    .{ .x = 1, .y = 1, .z = 0, .u = 1, .v = 0 },
-};
-
-pub const QUAD_INDICES: []const u16 = &.{
-    0, 1, 3,
-    0, 3, 2,
-};
+const WorldVertex = mesh.WorldVertex;
+const ScreenVertex = mesh.ScreenVertex;
 
 pub fn init(context: *RendererContext, allocator: std.mem.Allocator, io: std.Io) void {
     const vertex_shader = loadShader(context, "cube.vert", 0, 1, 0, 0, allocator, io);
@@ -111,7 +43,7 @@ pub fn init(context: *RendererContext, allocator: std.mem.Allocator, io: std.Io)
             .slot = 0,
             .input_rate = sdl.SDL_GPU_VERTEXINPUTRATE_VERTEX,
             .instance_step_rate = 0,
-            .pitch = @sizeOf(PositionColorVertex),
+            .pitch = @sizeOf(WorldVertex),
         },
     };
     const vertex_attributes = [_]sdl.SDL_GPUVertexAttribute{
@@ -175,7 +107,7 @@ pub fn init(context: *RendererContext, allocator: std.mem.Allocator, io: std.Io)
             .slot = 0,
             .input_rate = sdl.SDL_GPU_VERTEXINPUTRATE_VERTEX,
             .instance_step_rate = 0,
-            .pitch = @sizeOf(PositionUVVertex),
+            .pitch = @sizeOf(ScreenVertex),
         },
     };
     const screen_vertex_attributes = [_]sdl.SDL_GPUVertexAttribute{
@@ -213,8 +145,8 @@ pub fn init(context: *RendererContext, allocator: std.mem.Allocator, io: std.Io)
         @panic("Failed to create screen pipeline.");
     }
 
-    context.quad_mesh = buffer.upload(context, PositionUVVertex, QUAD, QUAD_INDICES);
-    context.cube_mesh = buffer.upload(context, PositionColorVertex, VERTICES, INDICES);
+    context.quad_mesh = buffer.upload(context, ScreenVertex, mesh.QUAD_VERTICES, mesh.QUAD_INDICES);
+    context.cube_mesh = buffer.upload(context, WorldVertex, mesh.CUBE_VERTICES, mesh.CUBE_INDICES);
 }
 
 pub fn deinit(context: *RendererContext) void {
