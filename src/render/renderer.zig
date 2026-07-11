@@ -1,10 +1,10 @@
 const flint = @import("flint");
-const math = @import("math");
 const sdl = flint.sdl.c;
 const sdl_utils = flint.sdl;
-const imgui = flint.imgui;
+const math = @import("math");
 const device = @import("device.zig");
 const pipeline = @import("pipeline.zig");
+const debug_ui = if (INTERNAL) @import("debug_ui.zig") else undefined;
 const game = @import("../root.zig");
 
 const INTERNAL: bool = @import("build_options").internal;
@@ -145,6 +145,10 @@ pub fn endFrame(state: *State, context: *FrameContext) void {
         );
         sdl.SDL_DrawGPUIndexedPrimitives(screen_render_pass, state.quad_mesh.index_count, 1, 0, 0, 0);
         sdl.SDL_EndGPURenderPass(screen_render_pass);
+
+        if (INTERNAL) {
+            debug_ui.draw(state, context, swapchain_texture);
+        }
     }
     command_buffer_submitted = sdl.SDL_SubmitGPUCommandBuffer(context.command_buffer);
     sdl_utils.panic(command_buffer_submitted, "Failed to submit GPU command buffer");
