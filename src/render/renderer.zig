@@ -132,7 +132,7 @@ pub fn beginFrame(context: *RendererContext, camera: *const Camera) FrameContext
 
 pub fn drawCube(context: *RendererContext, frame: *FrameContext, transform: Transform, color: Color) void {
     const model_matrix: Matrix4x4 = Camera.calculateModelMatrix(transform);
-    var mvp = model_matrix.multiply(frame.view_projection);
+    var mvp = frame.view_projection.multiply(model_matrix);
     sdl.SDL_PushGPUVertexUniformData(frame.command_buffer, 0, &mvp, @sizeOf(Matrix4x4));
 
     const uniforms: CubeUniforms = .{ .color = color };

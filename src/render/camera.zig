@@ -141,7 +141,7 @@ pub const Camera = struct {
             0,               0,               target.scale[Z], 0,
             0,               0,               0,               1,
         });
-        const model: Matrix4x4 = translation.multiply(scale).multiply(rotation);
+        const model: Matrix4x4 = translation.multiply(rotation).multiply(scale);
         return model;
     }
 
@@ -163,7 +163,7 @@ pub const Camera = struct {
             -math.dotV3(basis.right, position), -math.dotV3(basis.up, position), -math.dotV3(basis.back, position), 1,
         });
 
-        return view.multiply(proj);
+        return proj.multiply(view);
     }
 
     fn getViewBasis(self: *const Camera) Basis {

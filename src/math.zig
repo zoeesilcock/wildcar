@@ -89,13 +89,14 @@ pub const Matrix4x4 = extern struct {
         });
     }
 
+    /// Returns a * b. For column vectors (v' = M*v), b's transform is applied first.
     pub fn multiply(a: Matrix4x4, b: Matrix4x4) Matrix4x4 {
         var result: Matrix4x4 = .zero();
 
         for (0..4) |c| {
             for (0..4) |r| {
                 for (0..4) |i| {
-                    result.values[r + c * 4] += a.values[c * 4 + i] * b.values[r + i * 4];
+                    result.values[r + c * 4] += a.values[r + i * 4] * b.values[i + c * 4];
                 }
             }
         }
