@@ -10,6 +10,7 @@ const pipeline = @import("pipeline.zig");
 pub const Camera = @import("camera.zig").Camera;
 const MeshBuffer = @import("buffer.zig").MeshBuffer;
 const Transform = math.Transform;
+const Color = math.Color;
 const Settings = flint.GameLib.Settings;
 const Matrix4x4 = math.Matrix4x4;
 
@@ -46,6 +47,10 @@ pub const FrameContext = struct {
 
 pub const FragmentUniforms = struct {
     time: f32,
+};
+
+const CubeUniforms = struct {
+    color: [4]f32,
 };
 
 pub fn init(
@@ -125,10 +130,14 @@ pub fn beginFrame(context: *RendererContext, camera: *const Camera) FrameContext
     return frame;
 }
 
-pub fn drawCube(context: *RendererContext, frame: *FrameContext, transform: Transform) void {
+pub fn drawCube(context: *RendererContext, frame: *FrameContext, transform: Transform, color: Color) void {
     const model_matrix: Matrix4x4 = Camera.calculateModelMatrix(transform);
     var mvp = model_matrix.multiply(frame.view_projection);
     sdl.SDL_PushGPUVertexUniformData(frame.command_buffer, 0, &mvp, @sizeOf(Matrix4x4));
+
+    const uniforms: CubeUniforms = .{ .color = color };
+    sdl.SDL_PushGPUFragmentUniformData(frame.command_buffer, 0, &uniforms, @sizeOf(CubeUniforms));
+
     sdl.SDL_DrawGPUIndexedPrimitives(frame.render_pass, context.cube_mesh.index_count, 1, 0, 0, 0);
 }
 
@@ -157,12 +166,7 @@ pub fn compositeToSwapchain(
         1,
         null,
     );
-    sdl.SDL_PushGPUFragmentUniformData(
-        frame.command_buffer,
-        0,
-        &uniforms,
-        @sizeOf(FragmentUniforms),
-    );
+    sdl.SDL_PushGPUFragmentUniformData(frame.command_buffer, 0, &uniforms, @sizeOf(FragmentUniforms));
     sdl.SDL_BindGPUGraphicsPipeline(screen_render_pass, context.screen_pipeline);
     sdl.SDL_BindGPUVertexBuffers(screen_render_pass, 0, &.{ .buffer = context.quad_mesh.vertex_buffer, .offset = 0 }, 1);
     sdl.SDL_BindGPUIndexBuffer(

@@ -15,6 +15,7 @@ pub const std_options: std.Options = .{
 
 // Types.
 const Transform = math.Transform;
+const Color = math.Color;
 const GameLib = flint.GameLib;
 const FPSWindow = flint.internal.FPSWindow;
 
@@ -62,6 +63,7 @@ pub const State = struct {
 
 pub const Entity = struct {
     transform: Transform = .{},
+    color: Color = .{ 0.9, 0.3, 0.2, 1 },
 };
 
 pub var settings: GameLib.Settings = .{
@@ -210,7 +212,7 @@ pub export fn draw(state_ptr: GameLib.GameStatePtr) void {
     var frame_context = renderer.beginFrame(&state.renderer, &state.camera);
     {
         for (state.entities.items) |entity| {
-            renderer.drawCube(&state.renderer, &frame_context, entity.transform);
+            renderer.drawCube(&state.renderer, &frame_context, entity.transform, entity.color);
         }
 
         const swapchain_texture = renderer.compositeToSwapchain(

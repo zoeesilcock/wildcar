@@ -4,8 +4,7 @@ const sdl = @import("flint").sdl.c;
 pub const Vector2 = @Vector(2, f32);
 pub const Vector3 = @Vector(3, f32);
 pub const Vector4 = @Vector(4, f32);
-pub const Color3 = @Vector(3, u8);
-pub const Color = @Vector(4, u8);
+pub const Color = @Vector(4, f32);
 
 pub const X = 0;
 pub const Y = 1;

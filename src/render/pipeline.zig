@@ -17,7 +17,7 @@ pub fn init(context: *RendererContext, allocator: std.mem.Allocator, io: std.Io)
     }
     defer sdl.SDL_ReleaseGPUShader(context.gpu_device, vertex_shader);
 
-    const fragment_shader = loadShader(context, "solid_color.frag", 0, 0, 0, 0, allocator, io);
+    const fragment_shader = loadShader(context, "solid_color.frag", 0, 1, 0, 0, allocator, io);
     if (fragment_shader == null) {
         @panic("Failed to load fragment shader");
     }
