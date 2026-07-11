@@ -49,7 +49,7 @@ pub const Camera = struct {
         });
     }
 
-    pub fn calculateMVPMatrix(self: *const Camera, target: Transform) Matrix4x4 {
+    pub fn calculateModelMatrix(target: Transform) Matrix4x4 {
         const translation: Matrix4x4 = .new(.{
             1,                  0,                  0,                  0,
             0,                  1,                  0,                  0,
@@ -64,8 +64,11 @@ pub const Camera = struct {
             0,               0,               0,               1,
         });
         const model: Matrix4x4 = translation.multiply(scale).multiply(rotation);
+        return model;
+    }
 
-        const position = self.position;
+    pub fn calculateViewProjectionMatrix(self: *const Camera) Matrix4x4 {
+        const position: Vector3 = self.position;
         const one_over_fov: f32 = 1 / sdl.SDL_tanf(self.fov * 0.5);
         const proj: Matrix4x4 = .new(.{
             one_over_fov / self.aspect_ratio, 0,            0,                                                                       0,
@@ -74,7 +77,7 @@ pub const Camera = struct {
             0,                                0,            (self.near_plane * self.far_plane) / (self.near_plane - self.far_plane), 0,
         });
 
-        const target_to_position = position - self.target;
+        const target_to_position: Vector3 = position - self.target;
         const vector_a: Vector3 = math.normalizeV3(target_to_position);
         const vector_b: Vector3 = math.normalizeV3(math.crossV3(self.up, vector_a));
         const vector_c: Vector3 = math.crossV3(vector_a, vector_b);
@@ -85,6 +88,6 @@ pub const Camera = struct {
             -math.dotV3(vector_b, position), -math.dotV3(vector_c, position), -math.dotV3(vector_a, position), 1,
         });
 
-        return model.multiply(view).multiply(proj);
+        return view.multiply(proj);
     }
 };

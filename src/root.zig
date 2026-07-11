@@ -207,10 +207,10 @@ pub export fn tick(state_ptr: GameLib.GameStatePtr, time: u64, delta_time: u64) 
 pub export fn draw(state_ptr: GameLib.GameStatePtr) void {
     const state: *State = @ptrCast(@alignCast(state_ptr));
 
-    var frame_context = renderer.beginFrame(&state.renderer);
+    var frame_context = renderer.beginFrame(&state.renderer, &state.camera);
 
     for (state.entities.items) |entity| {
-        renderer.drawCube(&state.renderer, &frame_context, state.camera, entity.transform);
+        renderer.drawCube(&state.renderer, &frame_context, entity.transform);
     }
 
     const swapchain_texture = renderer.compositeToSwapchain(

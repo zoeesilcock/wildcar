@@ -41,6 +41,7 @@ pub const FrameContext = struct {
     command_buffer: ?*sdl.SDL_GPUCommandBuffer = null,
     render_pass: ?*sdl.SDL_GPURenderPass = null,
     color_target_info: sdl.SDL_GPUColorTargetInfo = undefined,
+    view_projection: Matrix4x4 = undefined,
 };
 
 pub const FragmentUniforms = struct {
@@ -76,8 +77,10 @@ pub fn reinitWindowSize(context: *RendererContext, settings: *Settings) void {
     device.initWindowSize(context, &settings.window_width, &settings.window_height);
 }
 
-pub fn beginFrame(context: *RendererContext) FrameContext {
-    var frame: FrameContext = .{};
+pub fn beginFrame(context: *RendererContext, camera: *const Camera) FrameContext {
+    var frame: FrameContext = .{
+        .view_projection = camera.calculateViewProjectionMatrix(),
+    };
 
     frame.command_buffer =
         sdl_utils.panicIfNull(sdl.SDL_AcquireGPUCommandBuffer(context.gpu_device), "Failed to acquire GPU command buffer");
@@ -122,8 +125,9 @@ pub fn beginFrame(context: *RendererContext) FrameContext {
     return frame;
 }
 
-pub fn drawCube(context: *RendererContext, frame: *FrameContext, camera: Camera, transform: Transform) void {
-    var mvp = camera.calculateMVPMatrix(transform);
+pub fn drawCube(context: *RendererContext, frame: *FrameContext, transform: Transform) void {
+    const model_matrix: Matrix4x4 = Camera.calculateModelMatrix(transform);
+    var mvp = model_matrix.multiply(frame.view_projection);
     sdl.SDL_PushGPUVertexUniformData(frame.command_buffer, 0, &mvp, @sizeOf(Matrix4x4));
     sdl.SDL_DrawGPUIndexedPrimitives(frame.render_pass, context.cube_mesh.index_count, 1, 0, 0, 0);
 }
