@@ -14,16 +14,14 @@ pub const std_options: std.Options = .{
 };
 
 // Types.
+const GameLib = flint.GameLib;
+const FPSWindow = flint.internal.FPSWindow;
 const Transform = math.Transform;
 const Color = math.Color;
 const Vector2 = math.Vector2;
-const GameLib = flint.GameLib;
-const FPSWindow = flint.internal.FPSWindow;
-
-const CameraMode = enum(u32) {
-    Orbit,
-    Free,
-};
+const X = math.X;
+const Y = math.Y;
+const Z = math.Z;
 
 pub const State = struct {
     dependencies: GameLib.Dependencies.Full3D,
@@ -41,8 +39,6 @@ pub const State = struct {
 
     camera: renderer.Camera,
     entities: std.ArrayList(Entity),
-
-    camera_mode: CameraMode = .Orbit,
 
     input: Input = .{},
 
@@ -79,6 +75,10 @@ const Input = struct {
     left_mouse_pressed: bool = false,
     left_mouse_last_time: u64 = 0,
 
+    middle_mouse_down: bool = false,
+    middle_mouse_pressed: bool = false,
+    middle_mouse_last_time: u64 = 0,
+
     right_mouse_down: bool = false,
     right_mouse_pressed: bool = false,
     right_mouse_last_time: u64 = 0,
@@ -86,6 +86,7 @@ const Input = struct {
     pub fn reset(self: *Input) void {
         self.mouse_delta = .{ 0, 0 };
         self.left_mouse_pressed = false;
+        self.middle_mouse_pressed = false;
         self.right_mouse_pressed = false;
     }
 };
@@ -210,13 +211,7 @@ pub export fn processInput(state_ptr: GameLib.GameStatePtr) bool {
                     }
                 },
                 sdl.SDLK_F3 => {
-                    if (INTERNAL) {
-                        var mode: u32 = @intFromEnum(state.camera_mode) + 1;
-                        if (mode >= @typeInfo(CameraMode).@"enum".field_names.len) {
-                            mode = 0;
-                        }
-                        state.camera_mode = @enumFromInt(mode);
-                    }
+                    state.camera.cycleMode();
                 },
                 sdl.SDLK_G => {
                     if (INTERNAL) {
@@ -243,6 +238,10 @@ pub export fn processInput(state_ptr: GameLib.GameStatePtr) bool {
                     state.input.left_mouse_pressed = (state.input.left_mouse_down and !is_down);
                     state.input.left_mouse_down = is_down;
                 },
+                2 => {
+                    state.input.middle_mouse_pressed = (state.input.middle_mouse_down and !is_down);
+                    state.input.middle_mouse_down = is_down;
+                },
                 3 => {
                     state.input.right_mouse_pressed = (state.input.right_mouse_down and !is_down);
                     state.input.right_mouse_down = is_down;
@@ -265,6 +264,26 @@ pub export fn tick(state_ptr: GameLib.GameStatePtr, time: u64, delta_time: u64) 
     state.time = time;
     state.delta_time_actual = delta_time;
     state.delta_time = if (state.paused) 0 else state.delta_time_actual;
+
+    // Camera.
+    {
+        const mouse_delta = state.input.mouse_delta * @as(Vector2, @splat(state.deltaTimeActual()));
+        if (state.input.left_mouse_down) {
+            state.camera.orbit(mouse_delta);
+        }
+
+        if (state.input.middle_mouse_down) {
+            state.camera.zoom(mouse_delta[Y]);
+        }
+
+        if (state.input.middle_mouse_down) {
+            state.camera.zoom(mouse_delta[Y]);
+        }
+
+        if (state.camera.mode == .Free) {
+            // WASD movement.
+        }
+    }
 
     if (INTERNAL) {
         state.dependencies.internal.fps_window.addFrameTime(sdl.SDL_GetPerformanceCounter());
