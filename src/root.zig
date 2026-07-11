@@ -71,6 +71,11 @@ const Input = struct {
     mouse_position: Vector2 = .{ 0, 0 },
     mouse_delta: Vector2 = .{ 0, 0 },
 
+    forward_button: Button = .{},
+    backward_button: Button = .{},
+    left_button: Button = .{},
+    right_button: Button = .{},
+
     left_mouse: Button = .{},
     middle_mouse: Button = .{},
     right_mouse: Button = .{},
@@ -92,10 +97,16 @@ const Input = struct {
     };
 
     pub fn reset(self: *Input) void {
-        self.mouse_delta = .{ 0, 0 };
+        self.forward_button.reset();
+        self.backward_button.reset();
+        self.left_button.reset();
+        self.right_button.reset();
+
         self.left_mouse.reset();
         self.middle_mouse.reset();
         self.right_mouse.reset();
+
+        self.mouse_delta = .{ 0, 0 };
     }
 };
 
@@ -230,6 +241,25 @@ pub export fn processInput(state_ptr: GameLib.GameStatePtr) bool {
             }
         }
 
+        if (event.type == sdl.SDL_EVENT_KEY_DOWN or event.type == sdl.SDL_EVENT_KEY_UP) {
+            const is_down = event.type == sdl.SDL_EVENT_KEY_DOWN;
+            switch (event.key.scancode) {
+                sdl.SDL_SCANCODE_W => {
+                    state.input.forward_button.update(is_down, state.time);
+                },
+                sdl.SDL_SCANCODE_A => {
+                    state.input.left_button.update(is_down, state.time);
+                },
+                sdl.SDL_SCANCODE_S => {
+                    state.input.backward_button.update(is_down, state.time);
+                },
+                sdl.SDL_SCANCODE_D => {
+                    state.input.right_button.update(is_down, state.time);
+                },
+                else => {},
+            }
+        }
+
         // Mouse movement.
         if (event.type == sdl.SDL_EVENT_MOUSE_MOTION) {
             const new_position: Vector2 = .{ event.motion.x, event.motion.y };
@@ -273,6 +303,7 @@ pub export fn tick(state_ptr: GameLib.GameStatePtr, time: u64, delta_time: u64) 
     // Camera.
     {
         const mouse_delta = state.input.mouse_delta * @as(Vector2, @splat(state.deltaTimeActual()));
+        const keyboard_speed: f32 = 0.1;
 
         if (state.input.left_mouse.down) {
             state.camera.orbit(mouse_delta);
@@ -291,7 +322,18 @@ pub export fn tick(state_ptr: GameLib.GameStatePtr, time: u64, delta_time: u64) 
                 state.camera.dolly(mouse_delta[Y]);
             }
 
-            // WASD movement.
+            if (state.input.forward_button.down) {
+                state.camera.dolly(keyboard_speed);
+            }
+            if (state.input.backward_button.down) {
+                state.camera.dolly(-keyboard_speed);
+            }
+            if (state.input.left_button.down) {
+                state.camera.pan(.{ -keyboard_speed, 0 });
+            }
+            if (state.input.right_button.down) {
+                state.camera.pan(.{ keyboard_speed, 0 });
+            }
         }
     }
 

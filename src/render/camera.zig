@@ -78,6 +78,12 @@ pub const Camera = struct {
         self.deriveSpatialState();
     }
 
+    pub fn dolly(self: *Camera, amount: f32) void {
+        const basis = self.getViewBasis();
+        self.position -= basis.back * @as(Vector3, @splat(amount));
+        self.deriveSpatialState();
+    }
+
     pub fn pan(self: *Camera, amount: Vector2) void {
         const basis = self.getViewBasis();
         const forward_flat: Vector3 = math.crossV3(self.up, basis.right);
