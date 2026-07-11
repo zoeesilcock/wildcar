@@ -1,16 +1,15 @@
 const math = @import("math");
 const flint = @import("flint");
 const sdl = flint.sdl.c;
-const game = @import("../root.zig");
 
 // Types.
+const Transform = math.Transform;
 const Vector2 = math.Vector2;
 const Vector3 = math.Vector3;
 const Matrix4x4 = math.Matrix4x4;
 const X = math.X;
 const Y = math.Y;
 const Z = math.Z;
-const Entity = game.Entity;
 
 pub const Camera = struct {
     position: Vector3,
@@ -50,18 +49,18 @@ pub const Camera = struct {
         });
     }
 
-    pub fn calculateMVPMatrix(self: *Camera, entity: Entity) Matrix4x4 {
+    pub fn calculateMVPMatrix(self: *const Camera, target: Transform) Matrix4x4 {
         const translation: Matrix4x4 = .new(.{
             1,                  0,                  0,                  0,
             0,                  1,                  0,                  0,
             0,                  0,                  1,                  0,
-            entity.position[X], entity.position[Y], entity.position[Z], 1,
+            target.position[X], target.position[Y], target.position[Z], 1,
         });
-        const rotation: Matrix4x4 = calculateRotationMatrix(entity.rotation);
+        const rotation: Matrix4x4 = calculateRotationMatrix(target.rotation);
         const scale: Matrix4x4 = .new(.{
-            entity.scale[X], 0,               0,               0,
-            0,               entity.scale[Y], 0,               0,
-            0,               0,               entity.scale[Z], 0,
+            target.scale[X], 0,               0,               0,
+            0,               target.scale[Y], 0,               0,
+            0,               0,               target.scale[Z], 0,
             0,               0,               0,               1,
         });
         const model: Matrix4x4 = translation.multiply(scale).multiply(rotation);

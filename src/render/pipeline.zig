@@ -1,11 +1,11 @@
 const std = @import("std");
 const flint = @import("flint");
 const sdl = flint.sdl.c;
+const renderer = @import("renderer.zig");
 const buffer = @import("buffer.zig");
-const game = @import("../root.zig");
 
 // Types.
-const State = game.State;
+const RendererContext = renderer.RendererContext;
 
 const PositionColorVertex = struct {
     x: f32,
@@ -78,33 +78,33 @@ pub const QUAD_INDICES: []const u16 = &.{
     0, 3, 2,
 };
 
-pub fn init(state: *State) void {
-    const vertex_shader = loadShader(state, "cube.vert", 0, 1, 0, 0);
+pub fn init(context: *RendererContext, allocator: std.mem.Allocator, io: std.Io) void {
+    const vertex_shader = loadShader(context, "cube.vert", 0, 1, 0, 0, allocator, io);
     if (vertex_shader == null) {
         @panic("Failed to load vertex shader");
     }
-    defer sdl.SDL_ReleaseGPUShader(state.device, vertex_shader);
+    defer sdl.SDL_ReleaseGPUShader(context.gpu_device, vertex_shader);
 
-    const fragment_shader = loadShader(state, "solid_color.frag", 0, 0, 0, 0);
+    const fragment_shader = loadShader(context, "solid_color.frag", 0, 0, 0, 0, allocator, io);
     if (fragment_shader == null) {
         @panic("Failed to load fragment shader");
     }
-    defer sdl.SDL_ReleaseGPUShader(state.device, fragment_shader);
+    defer sdl.SDL_ReleaseGPUShader(context.gpu_device, fragment_shader);
 
-    const screen_vertex_shader = loadShader(state, "screen.vert", 0, 0, 0, 0);
+    const screen_vertex_shader = loadShader(context, "screen.vert", 0, 0, 0, 0, allocator, io);
     if (screen_vertex_shader == null) {
         @panic("Failed to load screen vertex shader");
     }
-    defer sdl.SDL_ReleaseGPUShader(state.device, screen_vertex_shader);
+    defer sdl.SDL_ReleaseGPUShader(context.gpu_device, screen_vertex_shader);
 
-    const screen_fragment_shader = loadShader(state, "screen.frag", 1, 1, 0, 0);
+    const screen_fragment_shader = loadShader(context, "screen.frag", 1, 1, 0, 0, allocator, io);
     if (screen_fragment_shader == null) {
         @panic("Failed to load screen fragment shader");
     }
-    defer sdl.SDL_ReleaseGPUShader(state.device, screen_fragment_shader);
+    defer sdl.SDL_ReleaseGPUShader(context.gpu_device, screen_fragment_shader);
 
     const color_target_descriptions = [_]sdl.SDL_GPUColorTargetDescription{.{
-        .format = state.render_texture_format,
+        .format = context.render_texture_format,
     }};
     const vertex_buffer_descriptions = [_]sdl.SDL_GPUVertexBufferDescription{
         .{
@@ -133,7 +133,7 @@ pub fn init(state: *State) void {
             .num_color_targets = 1,
             .color_target_descriptions = &color_target_descriptions,
             .has_depth_stencil_target = true,
-            .depth_stencil_format = state.depth_stencil_format,
+            .depth_stencil_format = context.depth_stencil_format,
         },
         .vertex_input_state = .{
             .num_vertex_buffers = 1,
@@ -149,7 +149,7 @@ pub fn init(state: *State) void {
             .write_mask = 0xFF,
         },
         .multisample_state = .{
-            .sample_count = state.render_texture_sample_count,
+            .sample_count = context.render_texture_sample_count,
         },
         .primitive_type = sdl.SDL_GPU_PRIMITIVETYPE_TRIANGLELIST,
         .vertex_shader = vertex_shader,
@@ -157,15 +157,15 @@ pub fn init(state: *State) void {
     };
 
     pipeline_create_info.rasterizer_state.fill_mode = sdl.SDL_GPU_FILLMODE_FILL;
-    if (sdl.SDL_CreateGPUGraphicsPipeline(state.device, &pipeline_create_info)) |fill_pipeline| {
-        state.fill_pipeline = fill_pipeline;
+    if (sdl.SDL_CreateGPUGraphicsPipeline(context.gpu_device, &pipeline_create_info)) |fill_pipeline| {
+        context.fill_pipeline = fill_pipeline;
     } else {
         @panic("Failed to create fill pipeline.");
     }
 
     pipeline_create_info.rasterizer_state.fill_mode = sdl.SDL_GPU_FILLMODE_LINE;
-    if (sdl.SDL_CreateGPUGraphicsPipeline(state.device, &pipeline_create_info)) |line_pipeline| {
-        state.line_pipeline = line_pipeline;
+    if (sdl.SDL_CreateGPUGraphicsPipeline(context.gpu_device, &pipeline_create_info)) |line_pipeline| {
+        context.line_pipeline = line_pipeline;
     } else {
         @panic("Failed to create line pipeline.");
     }
@@ -207,36 +207,38 @@ pub fn init(state: *State) void {
         .vertex_shader = screen_vertex_shader,
         .fragment_shader = screen_fragment_shader,
     };
-    if (sdl.SDL_CreateGPUGraphicsPipeline(state.device, &pipeline_create_info)) |screen_pipeline| {
-        state.screen_pipeline = screen_pipeline;
+    if (sdl.SDL_CreateGPUGraphicsPipeline(context.gpu_device, &pipeline_create_info)) |screen_pipeline| {
+        context.screen_pipeline = screen_pipeline;
     } else {
         @panic("Failed to create screen pipeline.");
     }
 
-    state.quad_mesh = buffer.upload(state, PositionUVVertex, QUAD, QUAD_INDICES);
-    state.cube_mesh = buffer.upload(state, PositionColorVertex, VERTICES, INDICES);
+    context.quad_mesh = buffer.upload(context, PositionUVVertex, QUAD, QUAD_INDICES);
+    context.cube_mesh = buffer.upload(context, PositionColorVertex, VERTICES, INDICES);
 }
 
-pub fn deinit(state: *State) void {
-    sdl.SDL_ReleaseGPUGraphicsPipeline(state.device, state.fill_pipeline);
-    sdl.SDL_ReleaseGPUGraphicsPipeline(state.device, state.line_pipeline);
-    sdl.SDL_ReleaseGPUGraphicsPipeline(state.device, state.screen_pipeline);
+pub fn deinit(context: *RendererContext) void {
+    sdl.SDL_ReleaseGPUGraphicsPipeline(context.gpu_device, context.fill_pipeline);
+    sdl.SDL_ReleaseGPUGraphicsPipeline(context.gpu_device, context.line_pipeline);
+    sdl.SDL_ReleaseGPUGraphicsPipeline(context.gpu_device, context.screen_pipeline);
 
-    sdl.SDL_ReleaseGPUBuffer(state.device, state.cube_mesh.vertex_buffer);
-    sdl.SDL_ReleaseGPUBuffer(state.device, state.cube_mesh.index_buffer);
-    sdl.SDL_ReleaseGPUBuffer(state.device, state.quad_mesh.vertex_buffer);
-    sdl.SDL_ReleaseGPUBuffer(state.device, state.quad_mesh.index_buffer);
+    sdl.SDL_ReleaseGPUBuffer(context.gpu_device, context.cube_mesh.vertex_buffer);
+    sdl.SDL_ReleaseGPUBuffer(context.gpu_device, context.cube_mesh.index_buffer);
+    sdl.SDL_ReleaseGPUBuffer(context.gpu_device, context.quad_mesh.vertex_buffer);
+    sdl.SDL_ReleaseGPUBuffer(context.gpu_device, context.quad_mesh.index_buffer);
 
-    sdl.SDL_ReleaseGPUSampler(state.device, state.render_texture_sampler);
+    sdl.SDL_ReleaseGPUSampler(context.gpu_device, context.render_texture_sampler);
 }
 
 fn loadShader(
-    state: *State,
+    context: *RendererContext,
     name: []const u8,
     sampler_count: u32,
     uniform_buffer_count: u32,
     storage_buffer_count: u32,
     storage_texture_count: u32,
+    allocator: std.mem.Allocator,
+    io: std.Io,
 ) ?*sdl.SDL_GPUShader {
     var shader: ?*sdl.SDL_GPUShader = null;
     var entrypoint: [*:0]const u8 = "main";
@@ -247,7 +249,7 @@ fn loadShader(
         stage = sdl.SDL_GPU_SHADERSTAGE_FRAGMENT;
     }
 
-    const backend_formats: sdl.SDL_GPUShaderFormat = sdl.SDL_GetGPUShaderFormats(state.device);
+    const backend_formats: sdl.SDL_GPUShaderFormat = sdl.SDL_GetGPUShaderFormats(context.gpu_device);
     if ((backend_formats & sdl.SDL_GPU_SHADERFORMAT_SPIRV) != 0) {
         std.log.info("Loading {s} shader in SPIRV format.", .{name});
         format = sdl.SDL_GPU_SHADERFORMAT_SPIRV;
@@ -268,7 +270,7 @@ fn loadShader(
 
     var buf: [128]u8 = undefined;
     const path: []u8 = std.fmt.bufPrintSentinel(&buf, "assets/shaders/{s}{s}", .{ name, extension }, 0) catch "";
-    const relative_path = flint.fs.getFilePathRelative(state.dependencies.io.*, path, state.allocator) catch "";
+    const relative_path = flint.fs.getFilePathRelative(io, path, allocator) catch "";
     var code_size: usize = 0;
     if (sdl.SDL_LoadFile(relative_path.ptr, &code_size)) |code| {
         const shader_info: sdl.SDL_GPUShaderCreateInfo = .{
@@ -282,7 +284,7 @@ fn loadShader(
             .num_storage_buffers = storage_buffer_count,
             .num_storage_textures = storage_texture_count,
         };
-        shader = sdl.SDL_CreateGPUShader(state.device, &shader_info);
+        shader = sdl.SDL_CreateGPUShader(context.gpu_device, &shader_info);
     } else {
         std.log.info("Failed to load shader file: {s}", .{relative_path});
     }

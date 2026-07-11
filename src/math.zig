@@ -17,6 +17,12 @@ pub const G = 1;
 pub const B = 2;
 pub const A = 3;
 
+pub const Transform = struct {
+    position: Vector3 = .{ 0, 0, 0 },
+    scale: Vector3 = .{ 1, 1, 1 },
+    rotation: Vector3 = .{ 0, 0, 0 },
+};
+
 pub const Rect = struct {
     position: Vector2 = @splat(0),
     size: Vector2 = @splat(0),

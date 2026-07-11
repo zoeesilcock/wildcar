@@ -4,6 +4,7 @@ const sdl_utils = flint.sdl;
 const sdl = flint.sdl.c;
 const imgui = flint.imgui;
 const math = @import("math");
+const debug_ui = if (INTERNAL) @import("debug_ui.zig") else undefined;
 const renderer = @import("render/renderer.zig");
 
 const INTERNAL: bool = @import("build_options").internal;
@@ -13,7 +14,7 @@ pub const std_options: std.Options = .{
 };
 
 // Types.
-const Vector3 = math.Vector3;
+const Transform = math.Transform;
 const GameLib = flint.GameLib;
 const FPSWindow = flint.internal.FPSWindow;
 
@@ -22,22 +23,7 @@ pub const State = struct {
 
     allocator: std.mem.Allocator,
 
-    window: *sdl.SDL_Window,
-    device: *sdl.SDL_GPUDevice,
-    fill_pipeline: *sdl.SDL_GPUGraphicsPipeline = undefined,
-    line_pipeline: *sdl.SDL_GPUGraphicsPipeline = undefined,
-    screen_pipeline: *sdl.SDL_GPUGraphicsPipeline = undefined,
-
-    quad_mesh: renderer.MeshBuffer = undefined,
-    cube_mesh: renderer.MeshBuffer = undefined,
-
-    render_texture_format: sdl.SDL_GPUTextureFormat = undefined,
-    render_texture_sample_count: sdl.SDL_GPUSampleCount = sdl.SDL_GPU_SAMPLECOUNT_1,
-    render_texture: *sdl.SDL_GPUTexture = undefined,
-    render_texture_sampler: *sdl.SDL_GPUSampler = undefined,
-    resolve_texture: *sdl.SDL_GPUTexture = undefined,
-    depth_stencil_format: sdl.SDL_GPUTextureFormat = undefined,
-    depth_stencil_texture: *sdl.SDL_GPUTexture = undefined,
+    renderer: renderer.RendererContext = undefined,
 
     fullscreen: bool = false,
 
@@ -75,9 +61,7 @@ pub const State = struct {
 };
 
 pub const Entity = struct {
-    position: Vector3 = .{ 0, 0, 0 },
-    scale: Vector3 = .{ 1, 1, 1 },
-    rotation: Vector3 = .{ 0, 0, 0 },
+    transform: Transform = .{},
 };
 
 pub var settings: GameLib.Settings = .{
@@ -88,6 +72,11 @@ pub export fn getSettings() GameLib.Settings {
     return settings;
 }
 
+fn getAspectRatio() f32 {
+    return @as(f32, @floatFromInt(settings.window_width)) /
+        @as(f32, @floatFromInt(settings.window_height));
+}
+
 pub export fn initFull3D(dependencies: GameLib.Dependencies.Full3D) GameLib.GameStatePtr {
     var allocator = dependencies.allocator;
 
@@ -95,8 +84,6 @@ pub export fn initFull3D(dependencies: GameLib.Dependencies.Full3D) GameLib.Game
     state.* = .{
         .allocator = allocator.*,
         .dependencies = dependencies,
-        .window = dependencies.window,
-        .device = dependencies.gpu_device,
         .time = sdl.SDL_GetTicks(),
         .camera = undefined,
         .entities = .empty,
@@ -110,19 +97,26 @@ pub export fn initFull3D(dependencies: GameLib.Dependencies.Full3D) GameLib.Game
     const new_entity = state.entities.addOne(state.allocator) catch @panic("Failed to add entity");
     new_entity.* = .{};
 
-    renderer.init(state, &settings);
+    state.renderer = renderer.init(
+        state.dependencies.window,
+        state.dependencies.gpu_device,
+        &settings,
+        state.dependencies.allocator.*,
+        state.dependencies.io.*,
+    );
+    state.camera = .init(getAspectRatio());
 
     return state;
 }
 
 pub export fn deinit(state_ptr: GameLib.GameStatePtr) void {
     const state: *State = @ptrCast(@alignCast(state_ptr));
-    renderer.deinit(state);
+    renderer.deinit(&state.renderer);
 }
 
 pub export fn willReload(state_ptr: GameLib.GameStatePtr) void {
     const state: *State = @ptrCast(@alignCast(state_ptr));
-    renderer.deinit(state);
+    renderer.deinit(&state.renderer);
 }
 
 pub export fn reloaded(state_ptr: GameLib.GameStatePtr, imgui_context: ?*imgui.ImGuiContext) void {
@@ -133,7 +127,14 @@ pub export fn reloaded(state_ptr: GameLib.GameStatePtr, imgui_context: ?*imgui.I
         imgui.setup(imgui_context, .GPU);
     }
 
-    renderer.init(state, &settings);
+    state.renderer = renderer.init(
+        state.dependencies.window,
+        state.dependencies.gpu_device,
+        &settings,
+        state.dependencies.allocator.*,
+        state.dependencies.io.*,
+    );
+    state.camera = .init(getAspectRatio());
 }
 
 pub export fn processInput(state_ptr: GameLib.GameStatePtr) bool {
@@ -161,7 +162,7 @@ pub export fn processInput(state_ptr: GameLib.GameStatePtr) bool {
                 },
                 sdl.SDLK_F => {
                     state.fullscreen = !state.fullscreen;
-                    _ = sdl.SDL_SetWindowFullscreen(state.window, state.fullscreen);
+                    _ = sdl.SDL_SetWindowFullscreen(state.dependencies.window, state.fullscreen);
                 },
                 sdl.SDLK_F1 => {
                     if (INTERNAL) {
@@ -184,7 +185,7 @@ pub export fn processInput(state_ptr: GameLib.GameStatePtr) bool {
         }
 
         if (event.type == sdl.SDL_EVENT_WINDOW_RESIZED) {
-            renderer.reinitWindowSize(state, &settings);
+            renderer.reinitWindowSize(&state.renderer, &settings);
         }
     }
 
@@ -206,11 +207,21 @@ pub export fn tick(state_ptr: GameLib.GameStatePtr, time: u64, delta_time: u64) 
 pub export fn draw(state_ptr: GameLib.GameStatePtr) void {
     const state: *State = @ptrCast(@alignCast(state_ptr));
 
-    var frame_context = renderer.beginFrame(state);
+    var frame_context = renderer.beginFrame(&state.renderer);
 
     for (state.entities.items) |entity| {
-        renderer.drawCube(state, &frame_context, entity);
+        renderer.drawCube(&state.renderer, &frame_context, state.camera, entity.transform);
     }
 
-    renderer.endFrame(state, &frame_context);
+    const swapchain_texture = renderer.compositeToSwapchain(
+        &state.renderer,
+        &frame_context,
+        state.getFragmentUniforms(),
+    );
+
+    if (INTERNAL) {
+        debug_ui.draw(state, &frame_context, swapchain_texture);
+    }
+
+    renderer.endFrame(&frame_context);
 }

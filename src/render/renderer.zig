@@ -1,24 +1,40 @@
+const std = @import("std");
 const flint = @import("flint");
 const sdl = flint.sdl.c;
 const sdl_utils = flint.sdl;
 const math = @import("math");
 const device = @import("device.zig");
 const pipeline = @import("pipeline.zig");
-const debug_ui = if (INTERNAL) @import("debug_ui.zig") else undefined;
-const game = @import("../root.zig");
-
-const INTERNAL: bool = @import("build_options").internal;
 
 // Types.
-pub const MeshBuffer = @import("buffer.zig").MeshBuffer;
 pub const Camera = @import("camera.zig").Camera;
-const State = game.State;
+const MeshBuffer = @import("buffer.zig").MeshBuffer;
+const Transform = math.Transform;
 const Settings = flint.GameLib.Settings;
-const Entity = game.Entity;
 const Matrix4x4 = math.Matrix4x4;
 
-pub const FragmentUniforms = struct {
-    time: f32,
+pub const RendererContext = struct {
+    // Device.
+    window: *sdl.SDL_Window,
+    gpu_device: *sdl.SDL_GPUDevice,
+
+    render_texture_format: sdl.SDL_GPUTextureFormat = undefined,
+    render_texture_sample_count: sdl.SDL_GPUSampleCount = sdl.SDL_GPU_SAMPLECOUNT_1,
+    render_texture: *sdl.SDL_GPUTexture = undefined,
+    render_texture_sampler: *sdl.SDL_GPUSampler = undefined,
+
+    resolve_texture: *sdl.SDL_GPUTexture = undefined,
+
+    depth_stencil_format: sdl.SDL_GPUTextureFormat = undefined,
+    depth_stencil_texture: *sdl.SDL_GPUTexture = undefined,
+
+    // Pipeline.
+    fill_pipeline: *sdl.SDL_GPUGraphicsPipeline = undefined,
+    line_pipeline: *sdl.SDL_GPUGraphicsPipeline = undefined,
+    screen_pipeline: *sdl.SDL_GPUGraphicsPipeline = undefined,
+
+    quad_mesh: MeshBuffer = undefined,
+    cube_mesh: MeshBuffer = undefined,
 };
 
 pub const FrameContext = struct {
@@ -27,47 +43,59 @@ pub const FrameContext = struct {
     color_target_info: sdl.SDL_GPUColorTargetInfo = undefined,
 };
 
-pub fn init(state: *State, settings: *Settings) void {
-    device.init(state);
-    pipeline.init(state);
-    device.initWindowSize(state, &settings.window_width, &settings.window_height);
+pub const FragmentUniforms = struct {
+    time: f32,
+};
 
-    const aspect_ratio: f32 =
-        @as(f32, @floatFromInt(settings.window_width)) /
-        @as(f32, @floatFromInt(settings.window_height));
-    state.camera = .init(aspect_ratio);
+pub fn init(
+    window: *sdl.SDL_Window,
+    gpu_device: *sdl.SDL_GPUDevice,
+    settings: *Settings,
+    allocator: std.mem.Allocator,
+    io: std.Io,
+) RendererContext {
+    var context: RendererContext = .{
+        .window = window,
+        .gpu_device = gpu_device,
+    };
+
+    device.init(&context);
+    pipeline.init(&context, allocator, io);
+    device.initWindowSize(&context, &settings.window_width, &settings.window_height);
+
+    return context;
 }
 
-pub fn deinit(state: *State) void {
-    pipeline.deinit(state);
-    device.deinitWindowSize(state);
+pub fn deinit(context: *RendererContext) void {
+    pipeline.deinit(context);
+    device.deinitWindowSize(context);
 }
 
-pub fn reinitWindowSize(state: *State, settings: *Settings) void {
-    device.deinitWindowSize(state);
-    device.initWindowSize(state, &settings.window_width, &settings.window_height);
+pub fn reinitWindowSize(context: *RendererContext, settings: *Settings) void {
+    device.deinitWindowSize(context);
+    device.initWindowSize(context, &settings.window_width, &settings.window_height);
 }
 
-pub fn beginFrame(state: *State) FrameContext {
-    var context: FrameContext = .{};
+pub fn beginFrame(context: *RendererContext) FrameContext {
+    var frame: FrameContext = .{};
 
-    context.command_buffer =
-        sdl_utils.panicIfNull(sdl.SDL_AcquireGPUCommandBuffer(state.device), "Failed to acquire GPU command buffer");
+    frame.command_buffer =
+        sdl_utils.panicIfNull(sdl.SDL_AcquireGPUCommandBuffer(context.gpu_device), "Failed to acquire GPU command buffer");
 
-    context.color_target_info = .{
-        .texture = state.render_texture,
+    frame.color_target_info = .{
+        .texture = context.render_texture,
         .clear_color = .{ .r = 0, .g = 0, .b = 0, .a = 1 },
         .load_op = sdl.SDL_GPU_LOADOP_CLEAR,
         .store_op = sdl.SDL_GPU_STOREOP_STORE,
     };
 
-    if (state.render_texture_sample_count != sdl.SDL_GPU_SAMPLECOUNT_1) {
-        context.color_target_info.store_op = sdl.SDL_GPU_STOREOP_RESOLVE;
-        context.color_target_info.resolve_texture = state.resolve_texture;
+    if (context.render_texture_sample_count != sdl.SDL_GPU_SAMPLECOUNT_1) {
+        frame.color_target_info.store_op = sdl.SDL_GPU_STOREOP_RESOLVE;
+        frame.color_target_info.resolve_texture = context.resolve_texture;
     }
 
     var depth_stencil_target_info: sdl.SDL_GPUDepthStencilTargetInfo = .{
-        .texture = state.depth_stencil_texture,
+        .texture = context.depth_stencil_texture,
         .cycle = true,
         .clear_depth = 1,
         .clear_stencil = 0,
@@ -77,79 +105,83 @@ pub fn beginFrame(state: *State) FrameContext {
         .stencil_store_op = sdl.SDL_GPU_STOREOP_STORE,
     };
 
-    context.render_pass = sdl.SDL_BeginGPURenderPass(
-        context.command_buffer,
-        &context.color_target_info,
+    frame.render_pass = sdl.SDL_BeginGPURenderPass(
+        frame.command_buffer,
+        &frame.color_target_info,
         1,
         &depth_stencil_target_info,
     );
-    sdl.SDL_BindGPUGraphicsPipeline(context.render_pass, state.fill_pipeline);
-    sdl.SDL_BindGPUVertexBuffers(context.render_pass, 0, &.{ .buffer = state.cube_mesh.vertex_buffer, .offset = 0 }, 1);
+    sdl.SDL_BindGPUGraphicsPipeline(frame.render_pass, context.fill_pipeline);
+    sdl.SDL_BindGPUVertexBuffers(frame.render_pass, 0, &.{ .buffer = context.cube_mesh.vertex_buffer, .offset = 0 }, 1);
     sdl.SDL_BindGPUIndexBuffer(
-        context.render_pass,
-        &.{ .buffer = state.cube_mesh.index_buffer, .offset = 0 },
+        frame.render_pass,
+        &.{ .buffer = context.cube_mesh.index_buffer, .offset = 0 },
         sdl.SDL_GPU_INDEXELEMENTSIZE_16BIT,
     );
 
-    return context;
+    return frame;
 }
 
-pub fn drawCube(state: *State, context: *FrameContext, entity: Entity) void {
-    var mvp = state.camera.calculateMVPMatrix(entity);
-    sdl.SDL_PushGPUVertexUniformData(context.command_buffer, 0, &mvp, @sizeOf(Matrix4x4));
-    sdl.SDL_DrawGPUIndexedPrimitives(context.render_pass, state.cube_mesh.index_count, 1, 0, 0, 0);
+pub fn drawCube(context: *RendererContext, frame: *FrameContext, camera: Camera, transform: Transform) void {
+    var mvp = camera.calculateMVPMatrix(transform);
+    sdl.SDL_PushGPUVertexUniformData(frame.command_buffer, 0, &mvp, @sizeOf(Matrix4x4));
+    sdl.SDL_DrawGPUIndexedPrimitives(frame.render_pass, context.cube_mesh.index_count, 1, 0, 0, 0);
 }
 
-pub fn endFrame(state: *State, context: *FrameContext) void {
-    sdl.SDL_EndGPURenderPass(context.render_pass);
+pub fn compositeToSwapchain(
+    context: *RendererContext,
+    frame: *FrameContext,
+    uniforms: FragmentUniforms,
+) *sdl.SDL_GPUTexture {
+    sdl.SDL_EndGPURenderPass(frame.render_pass);
 
-    // Draw texture to screen.
-    var command_buffer_submitted = sdl.SDL_SubmitGPUCommandBuffer(context.command_buffer);
+    const command_buffer_submitted = sdl.SDL_SubmitGPUCommandBuffer(frame.command_buffer);
     sdl_utils.panic(command_buffer_submitted, "Failed to submit GPU command buffer");
-    context.command_buffer = sdl.SDL_AcquireGPUCommandBuffer(state.device);
+    frame.command_buffer = sdl.SDL_AcquireGPUCommandBuffer(context.gpu_device);
 
-    if (device.getSwapchainTexture(state, context)) |swapchain_texture| {
-        var screen_target_info: sdl.SDL_GPUColorTargetInfo = .{
-            .texture = swapchain_texture,
-            .clear_color = .{ .r = 0, .g = 0, .b = 1, .a = 1 },
-            .load_op = sdl.SDL_GPU_LOADOP_CLEAR,
-            .store_op = sdl.SDL_GPU_STOREOP_STORE,
-        };
-        const screen_render_pass: ?*sdl.SDL_GPURenderPass = sdl.SDL_BeginGPURenderPass(
-            context.command_buffer,
-            &screen_target_info,
-            1,
-            null,
-        );
-        sdl.SDL_PushGPUFragmentUniformData(
-            context.command_buffer,
-            0,
-            &state.getFragmentUniforms(),
-            @sizeOf(FragmentUniforms),
-        );
-        sdl.SDL_BindGPUGraphicsPipeline(screen_render_pass, state.screen_pipeline);
-        sdl.SDL_BindGPUVertexBuffers(screen_render_pass, 0, &.{ .buffer = state.quad_mesh.vertex_buffer, .offset = 0 }, 1);
-        sdl.SDL_BindGPUIndexBuffer(
-            screen_render_pass,
-            &.{ .buffer = state.quad_mesh.index_buffer, .offset = 0 },
-            sdl.SDL_GPU_INDEXELEMENTSIZE_16BIT,
-        );
-        sdl.SDL_BindGPUFragmentSamplers(
-            screen_render_pass,
-            0,
-            &.{
-                .texture = context.color_target_info.resolve_texture orelse context.color_target_info.texture,
-                .sampler = state.render_texture_sampler,
-            },
-            1,
-        );
-        sdl.SDL_DrawGPUIndexedPrimitives(screen_render_pass, state.quad_mesh.index_count, 1, 0, 0, 0);
-        sdl.SDL_EndGPURenderPass(screen_render_pass);
+    const swapchain_texture = device.getSwapchainTexture(context, frame) orelse
+        @panic("Failed to get swapchain texture.");
+    var screen_target_info: sdl.SDL_GPUColorTargetInfo = .{
+        .texture = swapchain_texture,
+        .clear_color = .{ .r = 0, .g = 0, .b = 1, .a = 1 },
+        .load_op = sdl.SDL_GPU_LOADOP_CLEAR,
+        .store_op = sdl.SDL_GPU_STOREOP_STORE,
+    };
+    const screen_render_pass: ?*sdl.SDL_GPURenderPass = sdl.SDL_BeginGPURenderPass(
+        frame.command_buffer,
+        &screen_target_info,
+        1,
+        null,
+    );
+    sdl.SDL_PushGPUFragmentUniformData(
+        frame.command_buffer,
+        0,
+        &uniforms,
+        @sizeOf(FragmentUniforms),
+    );
+    sdl.SDL_BindGPUGraphicsPipeline(screen_render_pass, context.screen_pipeline);
+    sdl.SDL_BindGPUVertexBuffers(screen_render_pass, 0, &.{ .buffer = context.quad_mesh.vertex_buffer, .offset = 0 }, 1);
+    sdl.SDL_BindGPUIndexBuffer(
+        screen_render_pass,
+        &.{ .buffer = context.quad_mesh.index_buffer, .offset = 0 },
+        sdl.SDL_GPU_INDEXELEMENTSIZE_16BIT,
+    );
+    sdl.SDL_BindGPUFragmentSamplers(
+        screen_render_pass,
+        0,
+        &.{
+            .texture = frame.color_target_info.resolve_texture orelse frame.color_target_info.texture,
+            .sampler = context.render_texture_sampler,
+        },
+        1,
+    );
+    sdl.SDL_DrawGPUIndexedPrimitives(screen_render_pass, context.quad_mesh.index_count, 1, 0, 0, 0);
+    sdl.SDL_EndGPURenderPass(screen_render_pass);
 
-        if (INTERNAL) {
-            debug_ui.draw(state, context, swapchain_texture);
-        }
-    }
-    command_buffer_submitted = sdl.SDL_SubmitGPUCommandBuffer(context.command_buffer);
+    return swapchain_texture;
+}
+
+pub fn endFrame(frame: *FrameContext) void {
+    const command_buffer_submitted = sdl.SDL_SubmitGPUCommandBuffer(frame.command_buffer);
     sdl_utils.panic(command_buffer_submitted, "Failed to submit GPU command buffer");
 }

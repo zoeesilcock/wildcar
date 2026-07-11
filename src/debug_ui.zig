@@ -2,8 +2,8 @@ const flint = @import("flint");
 const sdl = flint.sdl.c;
 const imgui = flint.imgui;
 const math = @import("math");
-const renderer = @import("renderer.zig");
-const game = @import("../root.zig");
+const renderer = @import("render/renderer.zig");
+const game = @import("root.zig");
 
 // Types.
 const FrameContext = renderer.FrameContext;
