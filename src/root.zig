@@ -71,23 +71,31 @@ const Input = struct {
     mouse_position: Vector2 = .{ 0, 0 },
     mouse_delta: Vector2 = .{ 0, 0 },
 
-    left_mouse_down: bool = false,
-    left_mouse_pressed: bool = false,
-    left_mouse_last_time: u64 = 0,
+    left_mouse: Button = .{},
+    middle_mouse: Button = .{},
+    right_mouse: Button = .{},
 
-    middle_mouse_down: bool = false,
-    middle_mouse_pressed: bool = false,
-    middle_mouse_last_time: u64 = 0,
+    const Button = struct {
+        down: bool = false,
+        pressed: bool = false,
+        last_time: u64 = 0,
 
-    right_mouse_down: bool = false,
-    right_mouse_pressed: bool = false,
-    right_mouse_last_time: u64 = 0,
+        pub fn update(self: *Button, is_down: bool, time: u64) void {
+            self.pressed = (self.down and !is_down);
+            self.down = is_down;
+            self.last_time = time;
+        }
+
+        pub fn reset(self: *Button) void {
+            self.pressed = false;
+        }
+    };
 
     pub fn reset(self: *Input) void {
         self.mouse_delta = .{ 0, 0 };
-        self.left_mouse_pressed = false;
-        self.middle_mouse_pressed = false;
-        self.right_mouse_pressed = false;
+        self.left_mouse.reset();
+        self.middle_mouse.reset();
+        self.right_mouse.reset();
     }
 };
 
@@ -235,16 +243,13 @@ pub export fn processInput(state_ptr: GameLib.GameStatePtr) bool {
 
             switch (event.button.button) {
                 1 => {
-                    state.input.left_mouse_pressed = (state.input.left_mouse_down and !is_down);
-                    state.input.left_mouse_down = is_down;
+                    state.input.left_mouse.update(is_down, state.time);
                 },
                 2 => {
-                    state.input.middle_mouse_pressed = (state.input.middle_mouse_down and !is_down);
-                    state.input.middle_mouse_down = is_down;
+                    state.input.middle_mouse.update(is_down, state.time);
                 },
                 3 => {
-                    state.input.right_mouse_pressed = (state.input.right_mouse_down and !is_down);
-                    state.input.right_mouse_down = is_down;
+                    state.input.right_mouse.update(is_down, state.time);
                 },
                 else => {},
             }
@@ -268,19 +273,24 @@ pub export fn tick(state_ptr: GameLib.GameStatePtr, time: u64, delta_time: u64) 
     // Camera.
     {
         const mouse_delta = state.input.mouse_delta * @as(Vector2, @splat(state.deltaTimeActual()));
-        if (state.input.left_mouse_down) {
+
+        if (state.input.left_mouse.down) {
             state.camera.orbit(mouse_delta);
         }
 
-        if (state.input.middle_mouse_down) {
+        if (state.input.middle_mouse.down) {
             state.camera.zoom(mouse_delta[Y]);
         }
 
-        if (state.input.middle_mouse_down) {
-            state.camera.zoom(mouse_delta[Y]);
-        }
+        if (state.camera.mode == .Orbit) {
+            if (state.input.middle_mouse.down) {
+                state.camera.zoom(mouse_delta[Y]);
+            }
+        } else if (state.camera.mode == .Free) {
+            if (state.input.middle_mouse.down) {
+                state.camera.dolly(mouse_delta[Y]);
+            }
 
-        if (state.camera.mode == .Free) {
             // WASD movement.
         }
     }
