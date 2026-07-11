@@ -115,6 +115,31 @@ const Entity = struct {
     color: Color = .{ 0.9, 0.3, 0.2, 1 },
 };
 
+const Scene = struct {
+    items: []Entity = &.{},
+
+    pub fn loadFromFile(path: []const u8, allocator: std.mem.Allocator, io: std.Io) Scene {
+        var scene: Scene = .{};
+        if (flint.fs.getFilePathRelative(io, path, allocator)) |relative_path| {
+            defer allocator.free(relative_path);
+
+            const scene_file = flint.fs.openFileRelative(io, relative_path, .{ .mode = .read_only }) catch
+                @panic("Failed to open scene file");
+            defer scene_file.close(io);
+
+            const scene_slice = std.Io.Dir.cwd().readFileAllocOptions(io, path, allocator, .unlimited, .@"1", 0) catch
+                @panic("Failed to read scene file");
+            defer allocator.free(scene_slice);
+
+            scene = std.zon.parse.fromSliceAlloc(Scene, allocator, scene_slice, null, .{}) catch
+                @panic("Failed to parse scene .zon file");
+        } else |_| {
+            @panic("Failed to open scene file");
+        }
+        return scene;
+    }
+};
+
 pub var settings: GameLib.Settings = .{
     .title = "Wildcar",
 };
@@ -126,6 +151,20 @@ pub export fn getSettings() GameLib.Settings {
 fn getAspectRatio() f32 {
     return @as(f32, @floatFromInt(settings.window_width)) /
         @as(f32, @floatFromInt(settings.window_height));
+}
+
+fn loadScene(state: *State) void {
+    const scene: Scene = .loadFromFile("assets/scene.zon", state.allocator, state.dependencies.io.*);
+    defer std.zon.parse.free(state.allocator, scene);
+
+    for (scene.items) |item| {
+        const new_entity = state.entities.addOne(state.allocator) catch @panic("Failed to add entity");
+        new_entity.* = item;
+    }
+}
+
+fn unloadScene(state: *State) void {
+    state.entities.clearRetainingCapacity();
 }
 
 pub export fn initFull3D(dependencies: GameLib.Dependencies.Full3D) GameLib.GameStatePtr {
@@ -145,9 +184,6 @@ pub export fn initFull3D(dependencies: GameLib.Dependencies.Full3D) GameLib.Game
         state.internal.output = dependencies.internal.output;
     }
 
-    const new_entity = state.entities.addOne(state.allocator) catch @panic("Failed to add entity");
-    new_entity.* = .{};
-
     state.renderer = renderer.init(
         state.dependencies.window,
         state.dependencies.gpu_device,
@@ -157,17 +193,21 @@ pub export fn initFull3D(dependencies: GameLib.Dependencies.Full3D) GameLib.Game
     );
     state.camera = .init(getAspectRatio());
 
+    loadScene(state);
+
     return state;
 }
 
 pub export fn deinit(state_ptr: GameLib.GameStatePtr) void {
     const state: *State = @ptrCast(@alignCast(state_ptr));
     renderer.deinit(&state.renderer);
+    unloadScene(state);
 }
 
 pub export fn willReload(state_ptr: GameLib.GameStatePtr) void {
     const state: *State = @ptrCast(@alignCast(state_ptr));
     renderer.deinit(&state.renderer);
+    unloadScene(state);
 }
 
 pub export fn reloaded(state_ptr: GameLib.GameStatePtr, imgui_context: ?*imgui.ImGuiContext) void {
@@ -186,6 +226,7 @@ pub export fn reloaded(state_ptr: GameLib.GameStatePtr, imgui_context: ?*imgui.I
         state.dependencies.io.*,
     );
     state.camera = .init(getAspectRatio());
+    loadScene(state);
 }
 
 pub export fn processInput(state_ptr: GameLib.GameStatePtr) bool {
