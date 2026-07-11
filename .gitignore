@@ -7,3 +7,4 @@ zig-pkg/
 /build-*/
 /docgen_tmp/
 data/*
+imgui.ini
