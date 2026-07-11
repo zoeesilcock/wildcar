@@ -208,20 +208,18 @@ pub export fn draw(state_ptr: GameLib.GameStatePtr) void {
     const state: *State = @ptrCast(@alignCast(state_ptr));
 
     var frame_context = renderer.beginFrame(&state.renderer, &state.camera);
+    {
+        for (state.entities.items) |entity| {
+            renderer.drawCube(&state.renderer, &frame_context, entity.transform);
+        }
 
-    for (state.entities.items) |entity| {
-        renderer.drawCube(&state.renderer, &frame_context, entity.transform);
+        const swapchain_texture = renderer.compositeToSwapchain(
+            &state.renderer,
+            &frame_context,
+            state.getFragmentUniforms(),
+        );
+
+        if (INTERNAL) debug_ui.draw(state, &frame_context, swapchain_texture);
     }
-
-    const swapchain_texture = renderer.compositeToSwapchain(
-        &state.renderer,
-        &frame_context,
-        state.getFragmentUniforms(),
-    );
-
-    if (INTERNAL) {
-        debug_ui.draw(state, &frame_context, swapchain_texture);
-    }
-
     renderer.endFrame(&frame_context);
 }
