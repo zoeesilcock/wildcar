@@ -388,6 +388,8 @@ pub export fn draw(state_ptr: GameLib.GameStatePtr) void {
 
     var frame_context = renderer.beginFrame(&state.renderer, &state.camera);
     {
+        renderer.drawSky(&state.renderer, &frame_context, &state.camera, .{ 0.8, 0.8, 1, 1 }, .{ 0.2, 0.2, 0.75, 1 });
+
         for (state.entities.items) |entity| {
             renderer.drawCube(&state.renderer, &frame_context, entity.transform, entity.color);
         }

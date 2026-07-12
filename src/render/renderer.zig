@@ -33,6 +33,7 @@ pub const RendererContext = struct {
     fill_pipeline: *sdl.SDL_GPUGraphicsPipeline = undefined,
     line_pipeline: *sdl.SDL_GPUGraphicsPipeline = undefined,
     screen_pipeline: *sdl.SDL_GPUGraphicsPipeline = undefined,
+    sky_pipeline: *sdl.SDL_GPUGraphicsPipeline = undefined,
 
     quad_mesh: MeshBuffer = undefined,
     cube_mesh: MeshBuffer = undefined,
@@ -48,12 +49,25 @@ pub const FrameContext = struct {
     view_projection: Matrix4x4 = undefined,
 };
 
-pub const FragmentUniforms = struct {
+pub const FragmentUniforms = extern struct {
     time: f32,
 };
 
-const CubeUniforms = struct {
+const CubeUniforms = extern struct {
     color: [4]f32,
+};
+
+pub const SkyVertexUniforms = extern struct {
+    cam_forward: [3]f32,
+    tan_half_fov: f32, // Filling a spot that would otherwise require padding, don't re-order.
+    cam_right: [3]f32,
+    aspect: f32, // Filling a spot that would otherwise require padding, don't re-order.
+    cam_up: [3]f32,
+};
+
+pub const SkyFragmentUniforms = extern struct {
+    horizon_color: [4]f32,
+    zenith_color: [4]f32,
 };
 
 pub fn init(
@@ -160,6 +174,13 @@ fn bindLinePipeline(context: *RendererContext, frame: *FrameContext) void {
     }
 }
 
+fn bindSkyPipeline(context: *RendererContext, frame: *FrameContext) void {
+    if (frame.bound_pipeline != context.sky_pipeline) {
+        sdl.SDL_BindGPUGraphicsPipeline(frame.render_pass, context.sky_pipeline);
+        frame.bound_pipeline = context.sky_pipeline;
+    }
+}
+
 fn bindScreenPipeline(context: *RendererContext, frame: *FrameContext) void {
     if (frame.bound_pipeline != context.screen_pipeline) {
         sdl.SDL_BindGPUGraphicsPipeline(frame.render_pass, context.screen_pipeline);
@@ -184,6 +205,31 @@ fn bindScreenPipeline(context: *RendererContext, frame: *FrameContext) void {
         },
         1,
     );
+}
+
+pub fn drawSky(
+    context: *RendererContext,
+    frame: *FrameContext,
+    camera: *Camera,
+    horizon_color: Color,
+    zenith_color: Color,
+) void {
+    bindSkyPipeline(context, frame);
+
+    const basis = camera.getViewBasis();
+    const vertex_uniforms = SkyVertexUniforms{
+        .cam_forward = -basis.back,
+        .cam_right = basis.right,
+        .cam_up = basis.up,
+        .tan_half_fov = @tan(camera.fov * 0.5),
+        .aspect = camera.aspect_ratio,
+    };
+    sdl.SDL_PushGPUVertexUniformData(frame.command_buffer, 0, &vertex_uniforms, @sizeOf(SkyVertexUniforms));
+
+    const fragment_uniforms: SkyFragmentUniforms = .{ .horizon_color = horizon_color, .zenith_color = zenith_color };
+    sdl.SDL_PushGPUFragmentUniformData(frame.command_buffer, 0, &fragment_uniforms, @sizeOf(SkyFragmentUniforms));
+
+    sdl.SDL_DrawGPUPrimitives(frame.render_pass, 3, 1, 0, 0);
 }
 
 pub fn drawCube(context: *RendererContext, frame: *FrameContext, transform: Transform, color: Color) void {

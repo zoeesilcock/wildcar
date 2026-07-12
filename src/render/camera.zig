@@ -41,11 +41,11 @@ pub const Camera = struct {
 
     pub fn init(aspect_ratio: f32) Camera {
         var self: Camera = .{
-            .position = .{ 3.85, 4.10, 2.10 },
+            .position = .{ 5.62, 2.11, 0 },
             .target = .{ 0, 0, 0 },
             .radius = 6,
-            .azimuth_angle = 0.5,
-            .polar_angle = 0.75,
+            .azimuth_angle = 0,
+            .polar_angle = 0.36,
             .up = .{ 0, 1, 0 },
             .fov = 75 * sdl.SDL_PI_F / 180,
             .aspect_ratio = aspect_ratio,
@@ -166,7 +166,7 @@ pub const Camera = struct {
         return proj.multiply(view);
     }
 
-    fn getViewBasis(self: *const Camera) Basis {
+    pub fn getViewBasis(self: *const Camera) Basis {
         const target_to_position: Vector3 = self.position - self.target;
         const back: Vector3 = math.normalizeV3(target_to_position);
         const right: Vector3 = math.normalizeV3(math.crossV3(self.up, back));

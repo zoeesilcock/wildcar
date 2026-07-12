@@ -35,10 +35,23 @@ pub fn init(context: *RendererContext, allocator: std.mem.Allocator, io: std.Io)
     }
     defer sdl.SDL_ReleaseGPUShader(context.gpu_device, screen_fragment_shader);
 
+    const sky_vertex_shader = loadShader(context, "sky.vert", 0, 1, 0, 0, allocator, io);
+    if (sky_vertex_shader == null) {
+        @panic("Failed to load sky vertex shader");
+    }
+    defer sdl.SDL_ReleaseGPUShader(context.gpu_device, sky_vertex_shader);
+
+    const sky_fragment_shader = loadShader(context, "sky.frag", 0, 1, 0, 0, allocator, io);
+    if (sky_fragment_shader == null) {
+        @panic("Failed to load sky fragment shader");
+    }
+    defer sdl.SDL_ReleaseGPUShader(context.gpu_device, sky_fragment_shader);
+
+    // Fill pipeline.
     const color_target_descriptions = [_]sdl.SDL_GPUColorTargetDescription{.{
         .format = context.render_texture_format,
     }};
-    const vertex_buffer_descriptions = [_]sdl.SDL_GPUVertexBufferDescription{
+    var vertex_buffer_descriptions = [_]sdl.SDL_GPUVertexBufferDescription{
         .{
             .slot = 0,
             .input_rate = sdl.SDL_GPU_VERTEXINPUTRATE_VERTEX,
@@ -46,7 +59,7 @@ pub fn init(context: *RendererContext, allocator: std.mem.Allocator, io: std.Io)
             .pitch = @sizeOf(WorldVertex),
         },
     };
-    const vertex_attributes = [_]sdl.SDL_GPUVertexAttribute{
+    var vertex_attributes = [_]sdl.SDL_GPUVertexAttribute{
         .{
             .buffer_slot = 0,
             .format = sdl.SDL_GPU_VERTEXELEMENTFORMAT_FLOAT3,
@@ -95,6 +108,7 @@ pub fn init(context: *RendererContext, allocator: std.mem.Allocator, io: std.Io)
         @panic("Failed to create fill pipeline.");
     }
 
+    // Line pipeline.
     pipeline_create_info.rasterizer_state.fill_mode = sdl.SDL_GPU_FILLMODE_LINE;
     if (sdl.SDL_CreateGPUGraphicsPipeline(context.gpu_device, &pipeline_create_info)) |line_pipeline| {
         context.line_pipeline = line_pipeline;
@@ -102,6 +116,7 @@ pub fn init(context: *RendererContext, allocator: std.mem.Allocator, io: std.Io)
         @panic("Failed to create line pipeline.");
     }
 
+    // Screen pipeline.
     const screen_vertex_buffer_descriptions = [_]sdl.SDL_GPUVertexBufferDescription{
         .{
             .slot = 0,
@@ -145,6 +160,34 @@ pub fn init(context: *RendererContext, allocator: std.mem.Allocator, io: std.Io)
         @panic("Failed to create screen pipeline.");
     }
 
+    // Sky pipeline.
+    pipeline_create_info = .{
+        .target_info = .{
+            .num_color_targets = 1,
+            .color_target_descriptions = &color_target_descriptions,
+            .has_depth_stencil_target = true,
+            .depth_stencil_format = context.depth_stencil_format,
+        },
+        .depth_stencil_state = .{
+            .enable_depth_test = true,
+            .enable_depth_write = false,
+            .enable_stencil_test = false,
+            .compare_op = sdl.SDL_GPU_COMPAREOP_LESS_OR_EQUAL,
+            .write_mask = 0xFF,
+        },
+        .multisample_state = .{
+            .sample_count = context.render_texture_sample_count,
+        },
+        .primitive_type = sdl.SDL_GPU_PRIMITIVETYPE_TRIANGLELIST,
+        .vertex_shader = sky_vertex_shader,
+        .fragment_shader = sky_fragment_shader,
+    };
+    if (sdl.SDL_CreateGPUGraphicsPipeline(context.gpu_device, &pipeline_create_info)) |sky_pipeline| {
+        context.sky_pipeline = sky_pipeline;
+    } else {
+        @panic("Failed to create sky pipeline.");
+    }
+
     context.quad_mesh = buffer.upload(context, ScreenVertex, mesh.QUAD_VERTICES, mesh.QUAD_INDICES);
     context.cube_mesh = buffer.upload(context, WorldVertex, mesh.CUBE_VERTICES, mesh.CUBE_INDICES);
 }
@@ -153,6 +196,7 @@ pub fn deinit(context: *RendererContext) void {
     sdl.SDL_ReleaseGPUGraphicsPipeline(context.gpu_device, context.fill_pipeline);
     sdl.SDL_ReleaseGPUGraphicsPipeline(context.gpu_device, context.line_pipeline);
     sdl.SDL_ReleaseGPUGraphicsPipeline(context.gpu_device, context.screen_pipeline);
+    sdl.SDL_ReleaseGPUGraphicsPipeline(context.gpu_device, context.sky_pipeline);
 
     sdl.SDL_ReleaseGPUBuffer(context.gpu_device, context.cube_mesh.vertex_buffer);
     sdl.SDL_ReleaseGPUBuffer(context.gpu_device, context.cube_mesh.index_buffer);
