@@ -56,6 +56,11 @@ pub const Camera = struct {
         return self;
     }
 
+    pub fn setAspectRatio(self: *Camera, aspect_ratio: f32) void {
+        self.aspect_ratio = aspect_ratio;
+        self.deriveSpatialState();
+    }
+
     pub fn cycleMode(self: *Camera) void {
         var mode: u32 = @intFromEnum(self.mode) + 1;
         if (mode >= @typeInfo(Mode).@"enum".field_names.len) {

@@ -328,6 +328,7 @@ pub export fn processInput(state_ptr: GameLib.GameStatePtr) bool {
 
         if (event.type == sdl.SDL_EVENT_WINDOW_RESIZED) {
             renderer.reinitWindowSize(&state.renderer, &settings);
+            state.camera.setAspectRatio(getAspectRatio());
         }
     }
 

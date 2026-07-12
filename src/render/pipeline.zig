@@ -202,8 +202,6 @@ pub fn deinit(context: *RendererContext) void {
     sdl.SDL_ReleaseGPUBuffer(context.gpu_device, context.cube_mesh.index_buffer);
     sdl.SDL_ReleaseGPUBuffer(context.gpu_device, context.quad_mesh.vertex_buffer);
     sdl.SDL_ReleaseGPUBuffer(context.gpu_device, context.quad_mesh.index_buffer);
-
-    sdl.SDL_ReleaseGPUSampler(context.gpu_device, context.render_texture_sampler);
 }
 
 fn loadShader(

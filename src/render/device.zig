@@ -121,6 +121,7 @@ pub fn initWindowSize(context: *RendererContext, width: *u32, height: *u32) void
 
 pub fn deinitWindowSize(context: *RendererContext) void {
     sdl.SDL_ReleaseGPUTexture(context.gpu_device, context.render_texture);
+    sdl.SDL_ReleaseGPUSampler(context.gpu_device, context.render_texture_sampler);
     sdl.SDL_ReleaseGPUTexture(context.gpu_device, context.resolve_texture);
     sdl.SDL_ReleaseGPUTexture(context.gpu_device, context.depth_stencil_texture);
 }
