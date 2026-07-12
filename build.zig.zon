@@ -1,7 +1,7 @@
 .{
     .name = .wildcar,
     .version = "0.1.0",
-    .minimum_zig_version = "0.17.0-dev.947+36069a2a7",
+    .minimum_zig_version = "0.17.0-dev.1252+e4b325c19",
     .fingerprint = 0xfba2aade6f03c29b,
     .dependencies = .{
         .flint = .{
