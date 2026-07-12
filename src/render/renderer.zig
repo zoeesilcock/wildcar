@@ -39,6 +39,9 @@ pub const RendererContext = struct {
 };
 
 pub const FrameContext = struct {
+    bound_pipeline: ?*sdl.SDL_GPUGraphicsPipeline = null,
+    bound_mesh: ?*MeshBuffer = null,
+
     command_buffer: ?*sdl.SDL_GPUCommandBuffer = null,
     render_pass: ?*sdl.SDL_GPURenderPass = null,
     color_target_info: sdl.SDL_GPUColorTargetInfo = undefined,
@@ -119,18 +122,73 @@ pub fn beginFrame(context: *RendererContext, camera: *const Camera) FrameContext
         1,
         &depth_stencil_target_info,
     );
-    sdl.SDL_BindGPUGraphicsPipeline(frame.render_pass, context.fill_pipeline);
-    sdl.SDL_BindGPUVertexBuffers(frame.render_pass, 0, &.{ .buffer = context.cube_mesh.vertex_buffer, .offset = 0 }, 1);
-    sdl.SDL_BindGPUIndexBuffer(
-        frame.render_pass,
-        &.{ .buffer = context.cube_mesh.index_buffer, .offset = 0 },
-        sdl.SDL_GPU_INDEXELEMENTSIZE_16BIT,
-    );
 
     return frame;
 }
 
+fn bindFillPipeline(context: *RendererContext, frame: *FrameContext) void {
+    if (frame.bound_pipeline != context.fill_pipeline) {
+        sdl.SDL_BindGPUGraphicsPipeline(frame.render_pass, context.fill_pipeline);
+        frame.bound_pipeline = context.fill_pipeline;
+    }
+
+    if (frame.bound_mesh != &context.cube_mesh) {
+        sdl.SDL_BindGPUVertexBuffers(frame.render_pass, 0, &.{ .buffer = context.cube_mesh.vertex_buffer, .offset = 0 }, 1);
+        sdl.SDL_BindGPUIndexBuffer(
+            frame.render_pass,
+            &.{ .buffer = context.cube_mesh.index_buffer, .offset = 0 },
+            sdl.SDL_GPU_INDEXELEMENTSIZE_16BIT,
+        );
+        frame.bound_mesh = &context.cube_mesh;
+    }
+}
+
+fn bindLinePipeline(context: *RendererContext, frame: *FrameContext) void {
+    if (frame.bound_pipeline != context.line_pipeline) {
+        sdl.SDL_BindGPUGraphicsPipeline(frame.render_pass, context.line_pipeline);
+        frame.bound_pipeline = context.line_pipeline;
+    }
+
+    if (frame.bound_mesh != &context.cube_mesh) {
+        sdl.SDL_BindGPUVertexBuffers(frame.render_pass, 0, &.{ .buffer = context.cube_mesh.vertex_buffer, .offset = 0 }, 1);
+        sdl.SDL_BindGPUIndexBuffer(
+            frame.render_pass,
+            &.{ .buffer = context.cube_mesh.index_buffer, .offset = 0 },
+            sdl.SDL_GPU_INDEXELEMENTSIZE_16BIT,
+        );
+        frame.bound_mesh = &context.cube_mesh;
+    }
+}
+
+fn bindScreenPipeline(context: *RendererContext, frame: *FrameContext) void {
+    if (frame.bound_pipeline != context.screen_pipeline) {
+        sdl.SDL_BindGPUGraphicsPipeline(frame.render_pass, context.screen_pipeline);
+    }
+
+    if (frame.bound_mesh != &context.quad_mesh) {
+        sdl.SDL_BindGPUVertexBuffers(frame.render_pass, 0, &.{ .buffer = context.quad_mesh.vertex_buffer, .offset = 0 }, 1);
+        sdl.SDL_BindGPUIndexBuffer(
+            frame.render_pass,
+            &.{ .buffer = context.quad_mesh.index_buffer, .offset = 0 },
+            sdl.SDL_GPU_INDEXELEMENTSIZE_16BIT,
+        );
+        frame.bound_pipeline = context.screen_pipeline;
+    }
+
+    sdl.SDL_BindGPUFragmentSamplers(
+        frame.render_pass,
+        0,
+        &.{
+            .texture = frame.color_target_info.resolve_texture orelse frame.color_target_info.texture,
+            .sampler = context.render_texture_sampler,
+        },
+        1,
+    );
+}
+
 pub fn drawCube(context: *RendererContext, frame: *FrameContext, transform: Transform, color: Color) void {
+    bindFillPipeline(context, frame);
+
     const model_matrix: Matrix4x4 = Camera.calculateModelMatrix(transform);
     var mvp = frame.view_projection.multiply(model_matrix);
     sdl.SDL_PushGPUVertexUniformData(frame.command_buffer, 0, &mvp, @sizeOf(Matrix4x4));
@@ -160,31 +218,16 @@ pub fn compositeToSwapchain(
         .load_op = sdl.SDL_GPU_LOADOP_CLEAR,
         .store_op = sdl.SDL_GPU_STOREOP_STORE,
     };
-    const screen_render_pass: ?*sdl.SDL_GPURenderPass = sdl.SDL_BeginGPURenderPass(
+    frame.render_pass = sdl.SDL_BeginGPURenderPass(
         frame.command_buffer,
         &screen_target_info,
         1,
         null,
     );
     sdl.SDL_PushGPUFragmentUniformData(frame.command_buffer, 0, &uniforms, @sizeOf(FragmentUniforms));
-    sdl.SDL_BindGPUGraphicsPipeline(screen_render_pass, context.screen_pipeline);
-    sdl.SDL_BindGPUVertexBuffers(screen_render_pass, 0, &.{ .buffer = context.quad_mesh.vertex_buffer, .offset = 0 }, 1);
-    sdl.SDL_BindGPUIndexBuffer(
-        screen_render_pass,
-        &.{ .buffer = context.quad_mesh.index_buffer, .offset = 0 },
-        sdl.SDL_GPU_INDEXELEMENTSIZE_16BIT,
-    );
-    sdl.SDL_BindGPUFragmentSamplers(
-        screen_render_pass,
-        0,
-        &.{
-            .texture = frame.color_target_info.resolve_texture orelse frame.color_target_info.texture,
-            .sampler = context.render_texture_sampler,
-        },
-        1,
-    );
-    sdl.SDL_DrawGPUIndexedPrimitives(screen_render_pass, context.quad_mesh.index_count, 1, 0, 0, 0);
-    sdl.SDL_EndGPURenderPass(screen_render_pass);
+    bindScreenPipeline(context, frame);
+    sdl.SDL_DrawGPUIndexedPrimitives(frame.render_pass, context.quad_mesh.index_count, 1, 0, 0, 0);
+    sdl.SDL_EndGPURenderPass(frame.render_pass);
 
     return swapchain_texture;
 }
