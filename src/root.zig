@@ -241,7 +241,10 @@ pub export fn reloaded(state_ptr: GameLib.GameStatePtr, imgui_context: ?*imgui.I
         state.dependencies.allocator.*,
         state.dependencies.io.*,
     );
-    state.camera = .init(getAspectRatio());
+
+    // Use this when working on camera.
+    // state.camera = .init(getAspectRatio());
+
     loadScene(state);
 }
 
