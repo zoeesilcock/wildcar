@@ -17,7 +17,9 @@ pub const std_options: std.Options = .{
 // Types.
 const GameLib = flint.GameLib;
 const FPSWindow = flint.internal.FPSWindow;
+const Vector3 = math.Vector3;
 const Transform = math.Transform;
+const Quaternion = math.Quaternion;
 const Color = math.Color;
 const Vector2 = math.Vector2;
 const X = math.X;
@@ -119,8 +121,16 @@ const Entity = struct {
     is_dynamic: bool = false,
 };
 
+const SceneEntity = struct {
+    position: Vector3,
+    scale: Vector3,
+    rotation: Vector3,
+    color: Color = .{ 0.9, 0.3, 0.2, 1 },
+    is_dynamic: bool = false,
+};
+
 const Scene = struct {
-    items: []Entity = &.{},
+    items: []SceneEntity = &.{},
 
     pub fn loadFromFile(path: []const u8, allocator: std.mem.Allocator, io: std.Io) Scene {
         var scene: Scene = .{};
@@ -164,7 +174,15 @@ fn loadScene(state: *State) void {
 
     for (scene.items) |item| {
         const entity = state.entities.addOne(state.allocator) catch @panic("Failed to add entity");
-        entity.* = item;
+        entity.* = .{
+            .transform = .{
+                .position = item.position,
+                .scale = item.scale,
+                .rotation = math.eulerToQuaternion(item.rotation),
+            },
+            .is_dynamic = item.is_dynamic,
+            .color = item.color,
+        };
 
         var body_def: c.b3BodyDef = c.b3DefaultBodyDef();
         body_def.position = .{
@@ -397,7 +415,7 @@ pub export fn tick(state_ptr: GameLib.GameStatePtr, time: u64, delta_time: u64) 
             const rotation: c.b3Quat = c.b3Body_GetRotation(entity.body_id);
 
             entity.transform.position = .{ position.x, position.y, position.z };
-            _ = rotation;
+            entity.transform.rotation = .{ rotation.v.x, rotation.v.y, rotation.v.z, rotation.s };
         }
     }
 

@@ -5,12 +5,14 @@ const sdl = flint.sdl.c;
 
 // Types.
 const Transform = math.Transform;
+const Quaternion = math.Quaternion;
 const Vector2 = math.Vector2;
 const Vector3 = math.Vector3;
 const Matrix4x4 = math.Matrix4x4;
 const X = math.X;
 const Y = math.Y;
 const Z = math.Z;
+const W = math.W;
 
 pub const Camera = struct {
     position: Vector3,
@@ -115,20 +117,27 @@ pub const Camera = struct {
         }
     }
 
-    fn calculateRotationMatrix(rotation: Vector3) Matrix4x4 {
-        const a: f32 = @cos(rotation[X]);
-        const b: f32 = @sin(rotation[X]);
-        const c: f32 = @cos(rotation[Y]);
-        const d: f32 = @sin(rotation[Y]);
-        const e: f32 = @cos(rotation[Z]);
-        const f: f32 = @sin(rotation[Z]);
-        const ad: f32 = a * d;
-        const bd: f32 = b * d;
+    fn calculateRotationMatrix(q: Quaternion) Matrix4x4 {
+        const x = q[X];
+        const y = q[Y];
+        const z = q[Z];
+        const w = q[W];
+
+        const xx = x * x;
+        const yy = y * y;
+        const zz = z * z;
+        const xy = x * y;
+        const xz = x * z;
+        const yz = y * z;
+        const wx = w * x;
+        const wy = w * y;
+        const wz = w * z;
+
         return .new(.{
-            c * e,           -c * f,          d,      0,
-            bd * e + a * f,  -bd * f + a * e, -b * c, 0,
-            -ad * e + b * f, ad * f + b * e,  a * c,  0,
-            0,               0,               0,      1,
+            1 - 2 * (yy + zz), 2 * (xy + wz),     2 * (xz - wy),     0,
+            2 * (xy - wz),     1 - 2 * (xx + zz), 2 * (yz + wx),     0,
+            2 * (xz + wy),     2 * (yz - wx),     1 - 2 * (xx + yy), 0,
+            0,                 0,                 0,                 1,
         });
     }
 

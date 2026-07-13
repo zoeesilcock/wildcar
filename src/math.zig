@@ -5,6 +5,7 @@ pub const Vector2 = @Vector(2, f32);
 pub const Vector3 = @Vector(3, f32);
 pub const Vector4 = @Vector(4, f32);
 pub const Color = @Vector(4, f32);
+pub const Quaternion = @Vector(4, f32);
 
 pub const X = 0;
 pub const Y = 1;
@@ -19,7 +20,7 @@ pub const A = 3;
 pub const Transform = struct {
     position: Vector3 = .{ 0, 0, 0 },
     scale: Vector3 = .{ 1, 1, 1 },
-    rotation: Vector3 = .{ 0, 0, 0 },
+    rotation: Quaternion = .{ 0, 0, 0, 0 },
 };
 
 pub const Rect = struct {
@@ -136,4 +137,26 @@ pub fn lerpU8(min: u8, max: u8, t: f32) u8 {
 
 pub fn lerp(min: f32, max: f32, t: f32) f32 {
     return (1.0 - t) * min + t * max;
+}
+
+/// Converts Euler angles (radians) to a quaternion.
+/// Order: intrinsic rotations applied X, then Y, then Z (i.e. q = qZ * qY * qX).
+pub fn eulerToQuaternion(euler: Vector3) Quaternion {
+    const hx = euler[X] * 0.5;
+    const hy = euler[Y] * 0.5;
+    const hz = euler[Z] * 0.5;
+
+    const cx = @cos(hx);
+    const sx = @sin(hx);
+    const cy = @cos(hy);
+    const sy = @sin(hy);
+    const cz = @cos(hz);
+    const sz = @sin(hz);
+
+    return .{
+        sx * cy * cz - cx * sy * sz,
+        cx * sy * cz + sx * cy * sz,
+        cx * cy * sz - sx * sy * cz,
+        cx * cy * cz + sx * sy * sz,
+    };
 }
