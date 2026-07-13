@@ -115,6 +115,8 @@ const Input = struct {
 const Entity = struct {
     transform: Transform = .{},
     color: Color = .{ 0.9, 0.3, 0.2, 1 },
+    body_id: c.b3BodyId = undefined,
+    is_dynamic: bool = false,
 };
 
 const Scene = struct {
@@ -144,6 +146,7 @@ const Scene = struct {
 
 pub var settings: GameLib.Settings = .{
     .title = "Wildcar",
+    .frame_rate = .fixed(60),
 };
 
 pub export fn getSettings() GameLib.Settings {
@@ -160,8 +163,28 @@ fn loadScene(state: *State) void {
     defer std.zon.parse.free(state.allocator, scene);
 
     for (scene.items) |item| {
-        const new_entity = state.entities.addOne(state.allocator) catch @panic("Failed to add entity");
-        new_entity.* = item;
+        const entity = state.entities.addOne(state.allocator) catch @panic("Failed to add entity");
+        entity.* = item;
+
+        var body_def: c.b3BodyDef = c.b3DefaultBodyDef();
+        body_def.position = .{
+            .x = entity.transform.position[X],
+            .y = entity.transform.position[Y],
+            .z = entity.transform.position[Z],
+        };
+        body_def.type = if (entity.is_dynamic) c.b3_dynamicBody else c.b3_staticBody;
+
+        entity.body_id = c.b3CreateBody(state.world_id, &body_def);
+        const box: c.b3BoxHull = c.b3MakeBoxHull(
+            entity.transform.scale[X],
+            entity.transform.scale[Y],
+            entity.transform.scale[Z],
+        );
+
+        var shape_def: c.b3ShapeDef = c.b3DefaultShapeDef();
+        shape_def.density = 1;
+        shape_def.baseMaterial.friction = 0.3;
+        _ = c.b3CreateHullShape(entity.body_id, &shape_def, &box.base);
     }
 }
 
@@ -195,21 +218,21 @@ pub export fn initFull3D(dependencies: GameLib.Dependencies.Full3D) GameLib.Game
     );
     state.camera = .init(getAspectRatio());
 
-    loadScene(state);
-
     // Init Box3D.
     var world_definition: c.b3WorldDef = c.b3DefaultWorldDef();
     world_definition.gravity = .{ .x = 0, .y = -10, .z = 0 };
     state.world_id = c.b3CreateWorld(&world_definition);
 
     var ground_body_def: c.b3BodyDef = c.b3DefaultBodyDef();
-    ground_body_def.position = .{ .x = 0, .y = -10, .z = 0 };
+    ground_body_def.position = .{ .x = 0, .y = -20, .z = 0 };
 
     const ground_id: c.b3BodyId = c.b3CreateBody(state.world_id, &ground_body_def);
 
-    const ground_box: c.b3BoxHull = c.b3MakeBoxHull(50, 10, 50);
+    const ground_box: c.b3BoxHull = c.b3MakeBoxHull(500, 10, 500);
     const ground_shape_def: c.b3ShapeDef = c.b3DefaultShapeDef();
     _ = c.b3CreateHullShape(ground_id, &ground_shape_def, &ground_box.base);
+
+    loadScene(state);
 
     return state;
 }
@@ -217,6 +240,7 @@ pub export fn initFull3D(dependencies: GameLib.Dependencies.Full3D) GameLib.Game
 pub export fn deinit(state_ptr: GameLib.GameStatePtr) void {
     const state: *State = @ptrCast(@alignCast(state_ptr));
     renderer.deinit(&state.renderer);
+    c.b3DestroyWorld(state.world_id);
     unloadScene(state);
 }
 
@@ -360,6 +384,22 @@ pub export fn tick(state_ptr: GameLib.GameStatePtr, time: u64, delta_time: u64) 
     state.time = time;
     state.delta_time_actual = delta_time;
     state.delta_time = if (state.paused) 0 else state.delta_time_actual;
+
+    // Physics.
+    const time_step: f32 = 1.0 / 60.0;
+    const sub_step_count: u32 = 4;
+
+    c.b3World_Step(state.world_id, time_step, sub_step_count);
+
+    for (state.entities.items) |*entity| {
+        if (entity.is_dynamic) {
+            const position: c.b3Vec3 = c.b3Body_GetPosition(entity.body_id);
+            const rotation: c.b3Quat = c.b3Body_GetRotation(entity.body_id);
+
+            entity.transform.position = .{ position.x, position.y, position.z };
+            _ = rotation;
+        }
+    }
 
     // Camera.
     {
