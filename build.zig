@@ -24,7 +24,7 @@ var log_allocations: bool = false;
 pub fn build(b: *std.Build) !void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
-    const name = b.option([]const u8, "name", "name of the shared library") orelse "cube";
+    const name = b.option([]const u8, "name", "name of the shared library") orelse "wildcar";
     const internal = b.option(bool, "internal", "include debug interface") orelse true;
     const lib_only = b.option(bool, "lib_only", "only build the shared library") orelse false;
     log_allocations = b.option(bool, "log_allocations", "log all allocations") orelse false;
@@ -185,6 +185,7 @@ fn addBox3D(
             "-Wall",
             "-Wextra",
             "-pedantic",
+            // "-fno-sanitize=alignment",
         },
         // .flags = &.{ // Linux.
         //     "-Wmissing-prototypes",
