@@ -234,15 +234,15 @@ pub fn drawSky(
 
 pub fn drawCube(context: *RendererContext, frame: *FrameContext, transform: Transform, color: Color) void {
     bindFillPipeline(context, frame);
-    drawCube_(context, frame, transform, color);
+    drawCubeInternal(context, frame, transform, color);
 }
 
 pub fn drawLineCube(context: *RendererContext, frame: *FrameContext, transform: Transform, color: Color) void {
     bindLinePipeline(context, frame);
-    drawCube_(context, frame, transform, color);
+    drawCubeInternal(context, frame, transform, color);
 }
 
-fn drawCube_(context: *RendererContext, frame: *FrameContext, transform: Transform, color: Color) void {
+fn drawCubeInternal(context: *RendererContext, frame: *FrameContext, transform: Transform, color: Color) void {
     const model_matrix: Matrix4x4 = Camera.calculateModelMatrix(transform);
     var mvp = frame.view_projection.multiply(model_matrix);
     sdl.SDL_PushGPUVertexUniformData(frame.command_buffer, 0, &mvp, @sizeOf(Matrix4x4));
