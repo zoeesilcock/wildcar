@@ -126,6 +126,7 @@ fn addBox3D(
     const box3d = b.dependency("box3d", .{});
 
     module.addIncludePath(box3d.path("include"));
+    module.addCMacro("BOX3D_EXPORT", "");
     module.addCSourceFiles(.{
         .root = box3d.path("src"),
         .files = &.{
@@ -145,6 +146,7 @@ fn addBox3D(
             "distance.c",
             "distance_joint.c",
             "dynamic_tree.c",
+            "filter_joint.c",
             "height_field.c",
             "hull.c",
             "id_pool.c",
@@ -181,12 +183,14 @@ fn addBox3D(
             "wheel_joint.c",
         },
         .flags = &.{
+            "-std=gnu17",
             "-Wmissing-prototypes",
             "-Wall",
             "-Wextra",
             "-pedantic",
             "-Wno-unused-value",
             "-fno-sanitize=alignment",
+            "-ffp-contract=off",
         },
     });
 
@@ -196,5 +200,7 @@ fn addBox3D(
         .optimize = optimize,
     });
     translate_c.addIncludePath(box3d.path("include"));
+    translate_c.defineCMacro("BOX3D_EXPORT", "");
+
     module.addImport("c", translate_c.createModule());
 }
