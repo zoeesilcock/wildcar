@@ -51,6 +51,7 @@ pub const State = struct {
     internal: if (INTERNAL) extern struct {
         output: *flint.internal.DebugOutputWindow = undefined,
         inspect_game_state: bool = false,
+        show_collision_bodies: bool = false,
     } else extern struct {} = undefined,
 
     pub fn currentTime(self: *State) f32 {
@@ -250,6 +251,11 @@ pub export fn processInput(state_ptr: GameLib.GameStatePtr) bool {
                         state.internal.inspect_game_state = !state.internal.inspect_game_state;
                     }
                 },
+                sdl.SDLK_C => {
+                    if (INTERNAL) {
+                        state.internal.show_collision_bodies = !state.internal.show_collision_bodies;
+                    }
+                },
                 else => {},
             }
         }
@@ -381,6 +387,21 @@ pub export fn draw(state_ptr: GameLib.GameStatePtr) void {
 
         for (state.entities.items) |entity| {
             renderer.drawCube(&state.renderer, &frame_context, entity.transform, entity.color);
+
+            if (state.internal.show_collision_bodies) {
+                const body_transform: c.b3Transform = c.b3Body_GetTransform(entity.body_id);
+
+                renderer.drawLineCube(
+                    &state.renderer,
+                    &frame_context,
+                    .{
+                        .position = .{ body_transform.p.x, body_transform.p.y, body_transform.p.z },
+                        .scale = entity.transform.scale,
+                        .rotation = .{ body_transform.q.v.x, body_transform.q.v.y, body_transform.q.v.z, body_transform.q.s },
+                    },
+                    if (entity.is_dynamic) .{ 0, 1, 0, 1 } else .{ 1, 1, 0, 1 },
+                );
+            }
         }
 
         const swapchain_texture = renderer.compositeToSwapchain(

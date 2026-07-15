@@ -12,7 +12,10 @@ Learning about 3D rendering and car physics.
 
 ### Controls
 * F1: Cycle between FPS display modes (none, number, or number and graph).
+* F2: Toggle memory usage.
+* F3: Cycle through camera modes (orbit or free).
 * G: Toggle game state inspector.
+* C: Toggle showing collision bodies.
 
 
 ## Development
