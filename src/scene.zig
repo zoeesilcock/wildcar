@@ -11,6 +11,7 @@ const Color = math.Color;
 const X = math.X;
 const Y = math.Y;
 const Z = math.Z;
+const W = math.W;
 
 const SceneEntity = struct {
     position: Vector3,
@@ -46,6 +47,8 @@ const Scene = struct {
 };
 
 pub fn load(state: *State) void {
+    initBox3D(state);
+
     const scene: Scene = .loadFromFile("assets/scene.zon", state.allocator, state.dependencies.io.*);
     defer std.zon.parse.free(state.allocator, scene);
 
@@ -67,15 +70,23 @@ pub fn load(state: *State) void {
             .y = entity.transform.position[Y],
             .z = entity.transform.position[Z],
         };
+        body_def.rotation = .{
+            .v = .{
+                .x = entity.transform.rotation[X],
+                .y = entity.transform.rotation[Y],
+                .z = entity.transform.rotation[Z],
+            },
+            .s = entity.transform.rotation[W],
+        };
         body_def.type = if (entity.is_dynamic) c.b3_dynamicBody else c.b3_staticBody;
 
         entity.body_id = c.b3CreateBody(state.world_id, &body_def);
+
         const box: c.b3BoxHull = c.b3MakeBoxHull(
             entity.transform.scale[X],
             entity.transform.scale[Y],
             entity.transform.scale[Z],
         );
-
         var shape_def: c.b3ShapeDef = c.b3DefaultShapeDef();
         shape_def.density = 1;
         shape_def.baseMaterial.friction = 0.3;
@@ -85,4 +96,24 @@ pub fn load(state: *State) void {
 
 pub fn unload(state: *State) void {
     state.entities.clearRetainingCapacity();
+    deinitBox3D(state);
+}
+
+fn initBox3D(state: *State) void {
+    var world_definition: c.b3WorldDef = c.b3DefaultWorldDef();
+    world_definition.gravity = .{ .x = 0, .y = -10, .z = 0 };
+    state.world_id = c.b3CreateWorld(&world_definition);
+
+    var ground_body_def: c.b3BodyDef = c.b3DefaultBodyDef();
+    ground_body_def.position = .{ .x = 0, .y = -20, .z = 0 };
+
+    const ground_id: c.b3BodyId = c.b3CreateBody(state.world_id, &ground_body_def);
+
+    const ground_box: c.b3BoxHull = c.b3MakeBoxHull(500, 10, 500);
+    const ground_shape_def: c.b3ShapeDef = c.b3DefaultShapeDef();
+    _ = c.b3CreateHullShape(ground_id, &ground_shape_def, &ground_box.base);
+}
+
+fn deinitBox3D(state: *State) void {
+    c.b3DestroyWorld(state.world_id);
 }

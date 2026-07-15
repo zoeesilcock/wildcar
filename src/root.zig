@@ -162,20 +162,6 @@ pub export fn initFull3D(dependencies: GameLib.Dependencies.Full3D) GameLib.Game
     );
     state.camera = .init(getAspectRatio());
 
-    // Init Box3D.
-    var world_definition: c.b3WorldDef = c.b3DefaultWorldDef();
-    world_definition.gravity = .{ .x = 0, .y = -10, .z = 0 };
-    state.world_id = c.b3CreateWorld(&world_definition);
-
-    var ground_body_def: c.b3BodyDef = c.b3DefaultBodyDef();
-    ground_body_def.position = .{ .x = 0, .y = -20, .z = 0 };
-
-    const ground_id: c.b3BodyId = c.b3CreateBody(state.world_id, &ground_body_def);
-
-    const ground_box: c.b3BoxHull = c.b3MakeBoxHull(500, 10, 500);
-    const ground_shape_def: c.b3ShapeDef = c.b3DefaultShapeDef();
-    _ = c.b3CreateHullShape(ground_id, &ground_shape_def, &ground_box.base);
-
     scene.load(state);
 
     return state;
@@ -184,7 +170,6 @@ pub export fn initFull3D(dependencies: GameLib.Dependencies.Full3D) GameLib.Game
 pub export fn deinit(state_ptr: GameLib.GameStatePtr) void {
     const state: *State = @ptrCast(@alignCast(state_ptr));
     renderer.deinit(&state.renderer);
-    c.b3DestroyWorld(state.world_id);
     scene.unload(state);
 }
 
