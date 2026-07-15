@@ -180,20 +180,14 @@ fn addBox3D(
             "weld_joint.c",
             "wheel_joint.c",
         },
-        .flags = &.{ // Mac.
+        .flags = &.{
             "-Wmissing-prototypes",
             "-Wall",
             "-Wextra",
             "-pedantic",
-            // "-fno-sanitize=alignment",
+            "-Wno-unused-value",
+            "-fno-sanitize=alignment",
         },
-        // .flags = &.{ // Linux.
-        //     "-Wmissing-prototypes",
-        //     "-Wall",
-        //     "-Wextra",
-        //     "-pedantic",
-        //     "-Wno-unused-value",
-        // },
     });
 
     const translate_c = b.addTranslateC(.{
