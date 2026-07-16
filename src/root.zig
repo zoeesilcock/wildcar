@@ -1,4 +1,5 @@
 const std = @import("std");
+const c = @import("c");
 const flint = @import("flint");
 const sdl_utils = flint.sdl;
 const sdl = flint.sdl.c;
@@ -6,6 +7,7 @@ const imgui = flint.imgui;
 const math = @import("math");
 const debug_ui = if (INTERNAL) @import("debug_ui.zig") else undefined;
 const renderer = @import("render/renderer.zig");
+const scene = @import("scene.zig");
 
 const INTERNAL: bool = @import("build_options").internal;
 
@@ -16,7 +18,9 @@ pub const std_options: std.Options = .{
 // Types.
 const GameLib = flint.GameLib;
 const FPSWindow = flint.internal.FPSWindow;
+const Vector3 = math.Vector3;
 const Transform = math.Transform;
+const Quaternion = math.Quaternion;
 const Color = math.Color;
 const Vector2 = math.Vector2;
 const X = math.X;
@@ -39,6 +43,7 @@ pub const State = struct {
 
     camera: renderer.Camera,
     entities: std.ArrayList(Entity),
+    world_id: c.b3WorldId = undefined,
 
     input: Input = .{},
 
@@ -46,6 +51,7 @@ pub const State = struct {
     internal: if (INTERNAL) extern struct {
         output: *flint.internal.DebugOutputWindow = undefined,
         inspect_game_state: bool = false,
+        show_collision_bodies: bool = false,
     } else extern struct {} = undefined,
 
     pub fn currentTime(self: *State) f32 {
@@ -113,35 +119,13 @@ const Input = struct {
 const Entity = struct {
     transform: Transform = .{},
     color: Color = .{ 0.9, 0.3, 0.2, 1 },
-};
-
-const Scene = struct {
-    items: []Entity = &.{},
-
-    pub fn loadFromFile(path: []const u8, allocator: std.mem.Allocator, io: std.Io) Scene {
-        var scene: Scene = .{};
-        if (flint.fs.getFilePathRelative(io, path, allocator)) |relative_path| {
-            defer allocator.free(relative_path);
-
-            const scene_file = flint.fs.openFileRelative(io, relative_path, .{ .mode = .read_only }) catch
-                @panic("Failed to open scene file");
-            defer scene_file.close(io);
-
-            const scene_slice = std.Io.Dir.cwd().readFileAllocOptions(io, path, allocator, .unlimited, .@"1", 0) catch
-                @panic("Failed to read scene file");
-            defer allocator.free(scene_slice);
-
-            scene = std.zon.parse.fromSliceAlloc(Scene, allocator, scene_slice, null, .{}) catch
-                @panic("Failed to parse scene .zon file");
-        } else |_| {
-            @panic("Failed to open scene file");
-        }
-        return scene;
-    }
+    body_id: c.b3BodyId = undefined,
+    is_dynamic: bool = false,
 };
 
 pub var settings: GameLib.Settings = .{
     .title = "Wildcar",
+    .frame_rate = .fixed(60),
 };
 
 pub export fn getSettings() GameLib.Settings {
@@ -151,20 +135,6 @@ pub export fn getSettings() GameLib.Settings {
 fn getAspectRatio() f32 {
     return @as(f32, @floatFromInt(settings.window_width)) /
         @as(f32, @floatFromInt(settings.window_height));
-}
-
-fn loadScene(state: *State) void {
-    const scene: Scene = .loadFromFile("assets/scene.zon", state.allocator, state.dependencies.io.*);
-    defer std.zon.parse.free(state.allocator, scene);
-
-    for (scene.items) |item| {
-        const new_entity = state.entities.addOne(state.allocator) catch @panic("Failed to add entity");
-        new_entity.* = item;
-    }
-}
-
-fn unloadScene(state: *State) void {
-    state.entities.clearRetainingCapacity();
 }
 
 pub export fn initFull3D(dependencies: GameLib.Dependencies.Full3D) GameLib.GameStatePtr {
@@ -193,7 +163,7 @@ pub export fn initFull3D(dependencies: GameLib.Dependencies.Full3D) GameLib.Game
     );
     state.camera = .init(getAspectRatio());
 
-    loadScene(state);
+    scene.load(state);
 
     return state;
 }
@@ -201,13 +171,13 @@ pub export fn initFull3D(dependencies: GameLib.Dependencies.Full3D) GameLib.Game
 pub export fn deinit(state_ptr: GameLib.GameStatePtr) void {
     const state: *State = @ptrCast(@alignCast(state_ptr));
     renderer.deinit(&state.renderer);
-    unloadScene(state);
+    scene.unload(state);
 }
 
 pub export fn willReload(state_ptr: GameLib.GameStatePtr) void {
     const state: *State = @ptrCast(@alignCast(state_ptr));
     renderer.deinit(&state.renderer);
-    unloadScene(state);
+    scene.unload(state);
 }
 
 pub export fn reloaded(state_ptr: GameLib.GameStatePtr, imgui_context: ?*imgui.ImGuiContext) void {
@@ -225,8 +195,11 @@ pub export fn reloaded(state_ptr: GameLib.GameStatePtr, imgui_context: ?*imgui.I
         state.dependencies.allocator.*,
         state.dependencies.io.*,
     );
-    state.camera = .init(getAspectRatio());
-    loadScene(state);
+
+    // Use this when working on camera.
+    // state.camera = .init(getAspectRatio());
+
+    scene.load(state);
 }
 
 pub export fn processInput(state_ptr: GameLib.GameStatePtr) bool {
@@ -276,6 +249,11 @@ pub export fn processInput(state_ptr: GameLib.GameStatePtr) bool {
                 sdl.SDLK_G => {
                     if (INTERNAL) {
                         state.internal.inspect_game_state = !state.internal.inspect_game_state;
+                    }
+                },
+                sdl.SDLK_C => {
+                    if (INTERNAL) {
+                        state.internal.show_collision_bodies = !state.internal.show_collision_bodies;
                     }
                 },
                 else => {},
@@ -342,6 +320,22 @@ pub export fn tick(state_ptr: GameLib.GameStatePtr, time: u64, delta_time: u64) 
     state.delta_time_actual = delta_time;
     state.delta_time = if (state.paused) 0 else state.delta_time_actual;
 
+    // Physics.
+    const time_step: f32 = 1.0 / 60.0;
+    const sub_step_count: u32 = 4;
+
+    c.b3World_Step(state.world_id, time_step, sub_step_count);
+
+    for (state.entities.items) |*entity| {
+        if (entity.is_dynamic) {
+            const position: c.b3Vec3 = c.b3Body_GetPosition(entity.body_id);
+            const rotation: c.b3Quat = c.b3Body_GetRotation(entity.body_id);
+
+            entity.transform.position = .{ position.x, position.y, position.z };
+            entity.transform.rotation = .{ rotation.v.x, rotation.v.y, rotation.v.z, rotation.s };
+        }
+    }
+
     // Camera.
     {
         const mouse_delta = state.input.mouse_delta * @as(Vector2, @splat(state.deltaTimeActual()));
@@ -393,6 +387,21 @@ pub export fn draw(state_ptr: GameLib.GameStatePtr) void {
 
         for (state.entities.items) |entity| {
             renderer.drawCube(&state.renderer, &frame_context, entity.transform, entity.color);
+
+            if (state.internal.show_collision_bodies) {
+                const body_transform: c.b3Transform = c.b3Body_GetTransform(entity.body_id);
+
+                renderer.drawLineCube(
+                    &state.renderer,
+                    &frame_context,
+                    .{
+                        .position = .{ body_transform.p.x, body_transform.p.y, body_transform.p.z },
+                        .scale = entity.transform.scale,
+                        .rotation = .{ body_transform.q.v.x, body_transform.q.v.y, body_transform.q.v.z, body_transform.q.s },
+                    },
+                    if (entity.is_dynamic) .{ 0, 1, 0, 1 } else .{ 1, 1, 0, 1 },
+                );
+            }
         }
 
         const swapchain_texture = renderer.compositeToSwapchain(

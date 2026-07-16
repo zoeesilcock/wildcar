@@ -24,7 +24,7 @@ var log_allocations: bool = false;
 pub fn build(b: *std.Build) !void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
-    const name = b.option([]const u8, "name", "name of the shared library") orelse "cube";
+    const name = b.option([]const u8, "name", "name of the shared library") orelse "wildcar";
     const internal = b.option(bool, "internal", "include debug interface") orelse true;
     const lib_only = b.option(bool, "lib_only", "only build the shared library") orelse false;
     log_allocations = b.option(bool, "log_allocations", "log all allocations") orelse false;
@@ -64,6 +64,7 @@ pub fn build(b: *std.Build) !void {
     module.addImport("build_options", result.build_options_mod);
     module.addImport("flint", result.flint_mod);
     module.addImport("math", math_mod);
+    addBox3D(b, target, optimize, module);
 
     const lib = b.addLibrary(.{
         .name = flint_options.name,
@@ -114,4 +115,91 @@ pub fn build(b: *std.Build) !void {
     }
 
     b.getInstallStep().dependOn(compile_shaders_step);
+}
+
+fn addBox3D(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    module: *std.Build.Module,
+) void {
+    const box3d = b.dependency("box3d", .{});
+
+    module.addIncludePath(box3d.path("include"));
+    module.addCMacro("BOX3D_EXPORT", "");
+    module.addCSourceFiles(.{
+        .root = box3d.path("src"),
+        .files = &.{
+            "aabb.c",
+            "arena_allocator.c",
+            "bitset.c",
+            "block_allocator.c",
+            "body.c",
+            "broad_phase.c",
+            "capsule.c",
+            "compound.c",
+            "constraint_graph.c",
+            "contact.c",
+            "contact_solver.c",
+            "convex_manifold.c",
+            "core.c",
+            "distance.c",
+            "distance_joint.c",
+            "dynamic_tree.c",
+            "height_field.c",
+            "hull.c",
+            "id_pool.c",
+            "island.c",
+            "joint.c",
+            "manifold.c",
+            "math_functions.c",
+            "mesh.c",
+            "mesh_contact.c",
+            "motor_joint.c",
+            "mover.c",
+            "name_cache.c",
+            "parallel_for.c",
+            "parallel_joint.c",
+            "physics_world.c",
+            "prismatic_joint.c",
+            "recording.c",
+            "recording_replay.c",
+            "world_snapshot.c",
+            "revolute_joint.c",
+            "scheduler.c",
+            "sensor.c",
+            "shape.c",
+            "simd.c",
+            "solver.c",
+            "solver_set.c",
+            "sphere.c",
+            "spherical_joint.c",
+            "table.c",
+            "timer.c",
+            "triangle_manifold.c",
+            "types.c",
+            "weld_joint.c",
+            "wheel_joint.c",
+        },
+        .flags = &.{
+            "-std=gnu17",
+            "-Wmissing-prototypes",
+            "-Wall",
+            "-Wextra",
+            "-pedantic",
+            "-Wno-unused-value",
+            "-fno-sanitize=alignment",
+            "-ffp-contract=off",
+        },
+    });
+
+    const translate_c = b.addTranslateC(.{
+        .root_source_file = b.path("src/c.h"),
+        .target = target,
+        .optimize = optimize,
+    });
+    translate_c.addIncludePath(box3d.path("include"));
+    translate_c.defineCMacro("BOX3D_EXPORT", "");
+
+    module.addImport("c", translate_c.createModule());
 }

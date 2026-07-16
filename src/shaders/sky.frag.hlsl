@@ -19,7 +19,7 @@ float4 main(Input input) : SV_Target0
         color = ground_color;
     } else {
         float t = saturate(dir.y * 0.9);
-        color = lerp(horizon_color, zenith_color, t);
+        color = lerp(horizon_color, zenith_color, t).rgb;
     }
     return float4(color.rgb, 1.0);
 }

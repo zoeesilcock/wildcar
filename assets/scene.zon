@@ -1,46 +1,37 @@
 .{
     .items = .{
-        // Car
+        // Car.
         .{
-            .transform = .{
-                .position = .{ 0, 0.5, 0 },
-                .scale = .{ 2, 0.5, 1 },
-                .rotation = .{ 0, 0, 0 },
-            },
+            .position = .{ -28, 15, 0 },
+            .scale = .{ 4, 1.5, 2 },
+            .rotation = .{ 0, 0, 0 },
             .color = .{ 0.9, 0.3, 0.2, 1 },
+            .is_dynamic = true,
         },
-        // Platforms
+        // Platforms.
         .{
-            .transform = .{
-                .position = .{ 0, -0.1, 0 },
-                .scale = .{ 100, 0.1, 100 },
-                .rotation = .{ 0, 0, 0 },
-            },
+            .position = .{ 0, -0.1, 0 },
+            .scale = .{ 100, 0.1, 100 },
+            .rotation = .{ 0, 0, 0 },
             .color = .{ 0.3, 0.6, 0.2, 1 },
         },
         .{
-            .transform = .{
-                .position = .{ -21, 1, 0 },
-                .scale = .{ 10, 0.1, 10 },
-                .rotation = .{ 0, 0, 0 },
-            },
+            .position = .{ -40, 1, 0 },
+            .scale = .{ 10, 0.1, 10 },
+            .rotation = .{ 0, 0, 0 },
             .color = .{ 0.5, 0.5, 0.6, 1 },
         },
-        // Ramps
+        // Ramps.
         .{
-            .transform = .{
-                .position = .{ -8.5, 0.5, -5 },
-                .scale = .{ 4, 0.2, 2 },
-                .rotation = .{ 0, 0, 0.2 },
-            },
+            .position = .{ -25, 0.75, -5 },
+            .scale = .{ 6, 0.2, 3 },
+            .rotation = .{ 0, 0, -0.2 },
             .color = .{ 0.7, 0.7, 0.8, 1 },
         },
         .{
-            .transform = .{
-                .position = .{ -7, 0.5, 5 },
-                .scale = .{ 4, 0.2, 2 },
-                .rotation = .{ 0, 0, 0.4 },
-            },
+            .position = .{ -25, 1.5, 5 },
+            .scale = .{ 6, 0.2, 3 },
+            .rotation = .{ 0, 0, -0.4 },
             .color = .{ 0.7, 0.7, 0.8, 1 },
         },
     },

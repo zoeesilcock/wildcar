@@ -8,6 +8,10 @@
             .url = "git+https://github.com/zoeesilcock/flint.git#e7819f01aa37d4dfc40fcbf293b9ef61a61e2e89",
             .hash = "flint-0.11.0-PsSSI0L4AQD-8rY2uIc7V0J8HnXwF9qjUVYUQ6oX-mHD",
         },
+        .box3d = .{
+            .url = "git+https://github.com/erincatto/box3d.git#d421e45c828f6f853a145f726f0b9425d31146eb",
+            .hash = "N-V-__8AALmCrwCnGA3PwgmedbeKh6TGLpDnw-YoXVhxpS-T",
+        },
     },
     .paths = .{
         "build.zig",
