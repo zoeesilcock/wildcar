@@ -1,8 +1,1 @@
-#include "box3d/base.h"
 #include "box3d/box3d.h"
-#include "box3d/collision.h"
-#include "box3d/config.h"
-#include "box3d/constants.h"
-#include "box3d/id.h"
-#include "box3d/math_functions.h"
-#include "box3d/types.h"

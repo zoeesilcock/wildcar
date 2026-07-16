@@ -146,7 +146,6 @@ fn addBox3D(
             "distance.c",
             "distance_joint.c",
             "dynamic_tree.c",
-            "filter_joint.c",
             "height_field.c",
             "hull.c",
             "id_pool.c",
