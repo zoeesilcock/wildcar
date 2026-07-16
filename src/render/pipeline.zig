@@ -90,7 +90,7 @@ pub fn init(context: *RendererContext, allocator: std.mem.Allocator, io: std.Io)
             .enable_depth_test = true,
             .enable_depth_write = true,
             .enable_stencil_test = false,
-            .compare_op = sdl.SDL_GPU_COMPAREOP_LESS,
+            .compare_op = sdl.SDL_GPU_COMPAREOP_GREATER,
             .write_mask = 0xFF,
         },
         .multisample_state = .{
@@ -169,10 +169,9 @@ pub fn init(context: *RendererContext, allocator: std.mem.Allocator, io: std.Io)
             .depth_stencil_format = context.depth_stencil_format,
         },
         .depth_stencil_state = .{
-            .enable_depth_test = true,
+            .enable_depth_test = false,
             .enable_depth_write = false,
             .enable_stencil_test = false,
-            .compare_op = sdl.SDL_GPU_COMPAREOP_LESS_OR_EQUAL,
             .write_mask = 0xFF,
         },
         .multisample_state = .{

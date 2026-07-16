@@ -12,18 +12,18 @@ pub fn init(context: *RendererContext) void {
     context.depth_stencil_format = undefined;
     if (sdl.SDL_GPUTextureSupportsFormat(
         context.gpu_device,
-        sdl.SDL_GPU_TEXTUREFORMAT_D24_UNORM_S8_UINT,
-        sdl.SDL_GPU_TEXTURETYPE_2D,
-        sdl.SDL_GPU_TEXTUREUSAGE_DEPTH_STENCIL_TARGET,
-    )) {
-        context.depth_stencil_format = sdl.SDL_GPU_TEXTUREFORMAT_D24_UNORM_S8_UINT;
-    } else if (sdl.SDL_GPUTextureSupportsFormat(
-        context.gpu_device,
         sdl.SDL_GPU_TEXTUREFORMAT_D32_FLOAT_S8_UINT,
         sdl.SDL_GPU_TEXTURETYPE_2D,
         sdl.SDL_GPU_TEXTUREUSAGE_DEPTH_STENCIL_TARGET,
     )) {
         context.depth_stencil_format = sdl.SDL_GPU_TEXTUREFORMAT_D32_FLOAT_S8_UINT;
+    } else if (sdl.SDL_GPUTextureSupportsFormat(
+        context.gpu_device,
+        sdl.SDL_GPU_TEXTUREFORMAT_D24_UNORM_S8_UINT,
+        sdl.SDL_GPU_TEXTURETYPE_2D,
+        sdl.SDL_GPU_TEXTUREUSAGE_DEPTH_STENCIL_TARGET,
+    )) {
+        context.depth_stencil_format = sdl.SDL_GPU_TEXTUREFORMAT_D24_UNORM_S8_UINT;
     } else {
         @panic("Failed to find a supported stencil format");
     }

@@ -122,7 +122,7 @@ pub fn beginFrame(context: *RendererContext, camera: *const Camera) FrameContext
     var depth_stencil_target_info: sdl.SDL_GPUDepthStencilTargetInfo = .{
         .texture = context.depth_stencil_texture,
         .cycle = true,
-        .clear_depth = 1,
+        .clear_depth = 0,
         .clear_stencil = 0,
         .load_op = sdl.SDL_GPU_LOADOP_CLEAR,
         .store_op = sdl.SDL_GPU_STOREOP_STORE,

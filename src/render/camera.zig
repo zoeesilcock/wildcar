@@ -52,8 +52,8 @@ pub const Camera = struct {
             .up = .{ 0, 1, 0 },
             .fov = 75 * sdl.SDL_PI_F / 180,
             .aspect_ratio = aspect_ratio,
-            .near_plane = 0.01,
-            .far_plane = 100,
+            .near_plane = 0.1,
+            .far_plane = 10_000,
         };
         self.deriveSpatialState();
         return self;
@@ -166,8 +166,8 @@ pub const Camera = struct {
         const proj: Matrix4x4 = .new(.{
             one_over_fov / self.aspect_ratio, 0,            0,                                                                       0,
             0,                                one_over_fov, 0,                                                                       0,
-            0,                                0,            self.far_plane / (self.near_plane - self.far_plane),                     -1,
-            0,                                0,            (self.near_plane * self.far_plane) / (self.near_plane - self.far_plane), 0,
+            0,                                0,            self.near_plane / (self.far_plane - self.near_plane),                     -1,
+            0,                                0,            (self.near_plane * self.far_plane) / (self.far_plane - self.near_plane), 0,
         });
 
         const basis = self.getViewBasis();
