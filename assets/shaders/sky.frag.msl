@@ -24,16 +24,16 @@ fragment main0_out main0(main0_in in [[stage_in]], constant type_SkyColors& SkyC
     main0_out out = {};
     float3 _28 = fast::normalize(in.in_var_TEXCOORD0);
     float _29 = _28.y;
-    float3 _46;
+    float3 _43;
     if (_29 < 0.0)
     {
-        _46 = float3(0.300000011920928955078125, 0.300000011920928955078125, 0.4000000059604644775390625);
+        _43 = float3(0.300000011920928955078125, 0.300000011920928955078125, 0.4000000059604644775390625);
     }
     else
     {
-        _46 = float3(mix(SkyColors.horizon_color, SkyColors.zenith_color, float4(fast::clamp(_29 * 0.89999997615814208984375, 0.0, 1.0))).xyz);
+        _43 = mix(SkyColors.horizon_color, SkyColors.zenith_color, float4(fast::clamp(_29 * 0.89999997615814208984375, 0.0, 1.0))).xyz;
     }
-    out.out_var_SV_Target0 = float4(_46, 1.0);
+    out.out_var_SV_Target0 = float4(_43, 1.0);
     return out;
 }
 
