@@ -6,6 +6,7 @@ using namespace metal;
 struct type_UniformBlock
 {
     float4x4 Transform;
+    float4x4 Model;
 };
 
 struct main0_out
@@ -23,7 +24,7 @@ struct main0_in
 vertex main0_out main0(main0_in in [[stage_in]], constant type_UniformBlock& UniformBlock [[buffer(0)]])
 {
     main0_out out = {};
-    out.out_var_TEXCOORD0 = in.in_var_TEXCOORD1;
+    out.out_var_TEXCOORD0 = fast::normalize(in.in_var_TEXCOORD1 * float3x3(float4(UniformBlock.Model[0][0], UniformBlock.Model[1][0], UniformBlock.Model[2][0], UniformBlock.Model[3][0]).xyz, float4(UniformBlock.Model[0][1], UniformBlock.Model[1][1], UniformBlock.Model[2][1], UniformBlock.Model[3][1]).xyz, float4(UniformBlock.Model[0][2], UniformBlock.Model[1][2], UniformBlock.Model[2][2], UniformBlock.Model[3][2]).xyz));
     out.gl_Position = UniformBlock.Transform * float4(in.in_var_TEXCOORD0, 1.0);
     return out;
 }

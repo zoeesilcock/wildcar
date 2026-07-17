@@ -1,6 +1,7 @@
 cbuffer UniformBlock : register(b0, space1)
 {
-    float4x4 Transform : packoffset(c0);
+    float4x4 Transform;
+    float4x4 Model;
 };
 
 struct Input
@@ -18,7 +19,7 @@ struct Output
 Output main(Input input)
 {
     Output output;
-    output.Normal = input.Normal;
+    output.Normal = normalize(mul((float3x3)Model, input.Normal));
     output.Position = mul(Transform, float4(input.Position, 1.0));
     return output;
 }

@@ -50,6 +50,11 @@ pub const FrameContext = struct {
     view_projection: Matrix4x4 = undefined,
 };
 
+const LambertVertexUniforms = extern struct {
+    mvp: Matrix4x4,
+    model: Matrix4x4,
+};
+
 const LambertFragmentUniforms = extern struct {
     color: [4]f32,
     light_direction: [3]f32,
@@ -262,8 +267,9 @@ fn drawCubeInternal(
     uniforms: LambertFragmentUniforms,
 ) void {
     const model_matrix: Matrix4x4 = Camera.calculateModelMatrix(transform);
-    var mvp = frame.view_projection.multiply(model_matrix);
-    sdl.SDL_PushGPUVertexUniformData(frame.command_buffer, 0, &mvp, @sizeOf(Matrix4x4));
+    const mvp = frame.view_projection.multiply(model_matrix);
+    const vertex_uniforms: LambertVertexUniforms = .{ .mvp = mvp, .model = model_matrix };
+    sdl.SDL_PushGPUVertexUniformData(frame.command_buffer, 0, &vertex_uniforms, @sizeOf(LambertVertexUniforms));
 
     sdl.SDL_PushGPUFragmentUniformData(frame.command_buffer, 0, &uniforms, @sizeOf(LambertFragmentUniforms));
 
