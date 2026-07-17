@@ -59,8 +59,10 @@ const LambertFragmentUniforms = extern struct {
     color: [4]f32,
     light_direction: [3]f32,
     _pad1: f32 = 0,
-    ambient_color: [3]f32,
+    light_color: [3]f32,
     _pad2: f32 = 0,
+    ambient_color: [3]f32,
+    _pad3: f32 = 0,
 };
 
 pub const SkyVertexUniforms = extern struct {
