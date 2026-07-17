@@ -19,6 +19,6 @@ Output main(Input input)
 {
     Output output;
     output.Normal = input.Normal;
-    output.Position = mul(Transform, float4(input.Position, 1.0f));
+    output.Position = mul(Transform, float4(input.Position, 1.0));
     return output;
 }

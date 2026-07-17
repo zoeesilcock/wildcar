@@ -11,6 +11,7 @@ pub const Camera = @import("camera.zig").Camera;
 const MeshBuffer = @import("buffer.zig").MeshBuffer;
 const Transform = math.Transform;
 const Color = math.Color;
+const Vector3 = math.Vector3;
 const Settings = flint.GameLib.Settings;
 const Matrix4x4 = math.Matrix4x4;
 
@@ -49,12 +50,10 @@ pub const FrameContext = struct {
     view_projection: Matrix4x4 = undefined,
 };
 
-pub const FragmentUniforms = extern struct {
-    time: f32,
-};
-
-const CubeUniforms = extern struct {
+const LambertFragmentUniforms = extern struct {
     color: [4]f32,
+    light_direction: [3]f32,
+    _pad: f32 = 0,
 };
 
 pub const SkyVertexUniforms = extern struct {
@@ -68,6 +67,10 @@ pub const SkyVertexUniforms = extern struct {
 pub const SkyFragmentUniforms = extern struct {
     horizon_color: [4]f32,
     zenith_color: [4]f32,
+};
+
+pub const ScreenFragmentUniforms = extern struct {
+    time: f32,
 };
 
 pub fn init(
@@ -232,23 +235,37 @@ pub fn drawSky(
     sdl.SDL_DrawGPUPrimitives(frame.render_pass, 3, 1, 0, 0);
 }
 
-pub fn drawCube(context: *RendererContext, frame: *FrameContext, transform: Transform, color: Color) void {
+pub fn drawCube(
+    context: *RendererContext,
+    frame: *FrameContext,
+    transform: Transform,
+    uniforms: LambertFragmentUniforms,
+) void {
     bindFillPipeline(context, frame);
-    drawCubeInternal(context, frame, transform, color);
+    drawCubeInternal(context, frame, transform, uniforms);
 }
 
-pub fn drawLineCube(context: *RendererContext, frame: *FrameContext, transform: Transform, color: Color) void {
+pub fn drawLineCube(
+    context: *RendererContext,
+    frame: *FrameContext,
+    transform: Transform,
+    uniforms: LambertFragmentUniforms,
+) void {
     bindLinePipeline(context, frame);
-    drawCubeInternal(context, frame, transform, color);
+    drawCubeInternal(context, frame, transform, uniforms);
 }
 
-fn drawCubeInternal(context: *RendererContext, frame: *FrameContext, transform: Transform, color: Color) void {
+fn drawCubeInternal(
+    context: *RendererContext,
+    frame: *FrameContext,
+    transform: Transform,
+    uniforms: LambertFragmentUniforms,
+) void {
     const model_matrix: Matrix4x4 = Camera.calculateModelMatrix(transform);
     var mvp = frame.view_projection.multiply(model_matrix);
     sdl.SDL_PushGPUVertexUniformData(frame.command_buffer, 0, &mvp, @sizeOf(Matrix4x4));
 
-    const uniforms: CubeUniforms = .{ .color = color };
-    sdl.SDL_PushGPUFragmentUniformData(frame.command_buffer, 0, &uniforms, @sizeOf(CubeUniforms));
+    sdl.SDL_PushGPUFragmentUniformData(frame.command_buffer, 0, &uniforms, @sizeOf(LambertFragmentUniforms));
 
     sdl.SDL_DrawGPUIndexedPrimitives(frame.render_pass, context.cube_mesh.index_count, 1, 0, 0, 0);
 }
@@ -256,7 +273,7 @@ fn drawCubeInternal(context: *RendererContext, frame: *FrameContext, transform: 
 pub fn compositeToSwapchain(
     context: *RendererContext,
     frame: *FrameContext,
-    uniforms: FragmentUniforms,
+    uniforms: ScreenFragmentUniforms,
 ) *sdl.SDL_GPUTexture {
     sdl.SDL_EndGPURenderPass(frame.render_pass);
 
@@ -278,7 +295,7 @@ pub fn compositeToSwapchain(
         1,
         null,
     );
-    sdl.SDL_PushGPUFragmentUniformData(frame.command_buffer, 0, &uniforms, @sizeOf(FragmentUniforms));
+    sdl.SDL_PushGPUFragmentUniformData(frame.command_buffer, 0, &uniforms, @sizeOf(ScreenFragmentUniforms));
     bindScreenPipeline(context, frame);
     sdl.SDL_DrawGPUIndexedPrimitives(frame.render_pass, context.quad_mesh.index_count, 1, 0, 0, 0);
     sdl.SDL_EndGPURenderPass(frame.render_pass);

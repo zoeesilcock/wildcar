@@ -11,13 +11,13 @@ const WorldVertex = mesh.WorldVertex;
 const ScreenVertex = mesh.ScreenVertex;
 
 pub fn init(context: *RendererContext, allocator: std.mem.Allocator, io: std.Io) void {
-    const vertex_shader = loadShader(context, "cube.vert", 0, 1, 0, 0, allocator, io);
+    const vertex_shader = loadShader(context, "lambert.vert", 0, 1, 0, 0, allocator, io);
     if (vertex_shader == null) {
         @panic("Failed to load vertex shader");
     }
     defer sdl.SDL_ReleaseGPUShader(context.gpu_device, vertex_shader);
 
-    const fragment_shader = loadShader(context, "solid_color.frag", 0, 1, 0, 0, allocator, io);
+    const fragment_shader = loadShader(context, "lambert.frag", 0, 1, 0, 0, allocator, io);
     if (fragment_shader == null) {
         @panic("Failed to load fragment shader");
     }
@@ -68,7 +68,7 @@ pub fn init(context: *RendererContext, allocator: std.mem.Allocator, io: std.Io)
         },
         .{
             .buffer_slot = 0,
-            .format = sdl.SDL_GPU_VERTEXELEMENTFORMAT_UBYTE4_NORM,
+            .format = sdl.SDL_GPU_VERTEXELEMENTFORMAT_FLOAT3,
             .location = 1,
             .offset = @sizeOf(f32) * 3,
         },

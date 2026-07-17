@@ -44,6 +44,7 @@ pub const State = struct {
     camera: renderer.Camera,
     entities: std.ArrayList(Entity),
     world_id: c.b3WorldId = undefined,
+    light_direction: Vector3 = .{ 0, 1, 0 },
 
     input: Input = .{},
 
@@ -66,7 +67,7 @@ pub const State = struct {
         return @as(f32, @floatFromInt(self.delta_time_actual)) / 1000;
     }
 
-    pub fn getFragmentUniforms(self: *State) renderer.FragmentUniforms {
+    pub fn getScreenFragmentUniforms(self: *State) renderer.ScreenFragmentUniforms {
         return .{
             .time = self.currentTime(),
         };
@@ -386,28 +387,29 @@ pub export fn draw(state_ptr: GameLib.GameStatePtr) void {
         renderer.drawSky(&state.renderer, &frame_context, &state.camera, .{ 0.8, 0.8, 1, 1 }, .{ 0.2, 0.2, 0.75, 1 });
 
         for (state.entities.items) |entity| {
-            renderer.drawCube(&state.renderer, &frame_context, entity.transform, entity.color);
+            renderer.drawCube(&state.renderer, &frame_context, entity.transform, .{
+                .color = entity.color,
+                .light_direction = state.light_direction,
+            });
 
             if (state.internal.show_collision_bodies) {
                 const body_transform: c.b3Transform = c.b3Body_GetTransform(entity.body_id);
 
-                renderer.drawLineCube(
-                    &state.renderer,
-                    &frame_context,
-                    .{
-                        .position = .{ body_transform.p.x, body_transform.p.y, body_transform.p.z },
-                        .scale = entity.transform.scale,
-                        .rotation = .{ body_transform.q.v.x, body_transform.q.v.y, body_transform.q.v.z, body_transform.q.s },
-                    },
-                    if (entity.is_dynamic) .{ 0, 1, 0, 1 } else .{ 1, 1, 0, 1 },
-                );
+                renderer.drawLineCube(&state.renderer, &frame_context, .{
+                    .position = .{ body_transform.p.x, body_transform.p.y, body_transform.p.z },
+                    .scale = entity.transform.scale,
+                    .rotation = .{ body_transform.q.v.x, body_transform.q.v.y, body_transform.q.v.z, body_transform.q.s },
+                }, .{
+                    .color = if (entity.is_dynamic) .{ 0, 1, 0, 1 } else .{ 1, 1, 0, 1 },
+                    .light_direction = state.light_direction,
+                });
             }
         }
 
         const swapchain_texture = renderer.compositeToSwapchain(
             &state.renderer,
             &frame_context,
-            state.getFragmentUniforms(),
+            state.getScreenFragmentUniforms(),
         );
 
         if (INTERNAL) debug_ui.draw(state, &frame_context, swapchain_texture);
