@@ -5,8 +5,11 @@ using namespace metal;
 
 struct type_SkyColors
 {
-    float4 horizon_color;
-    float4 zenith_color;
+    packed_float3 horizon_color;
+    float _pad1;
+    packed_float3 zenith_color;
+    float _pad2;
+    float3 ground_color;
 };
 
 struct main0_out
@@ -22,18 +25,18 @@ struct main0_in
 fragment main0_out main0(main0_in in [[stage_in]], constant type_SkyColors& SkyColors [[buffer(0)]])
 {
     main0_out out = {};
-    float3 _28 = fast::normalize(in.in_var_TEXCOORD0);
-    float _29 = _28.y;
-    float3 _43;
-    if (_29 < 0.0)
+    float3 _26 = fast::normalize(in.in_var_TEXCOORD0);
+    float _27 = _26.y;
+    float3 _42;
+    if (_27 < 0.0)
     {
-        _43 = float3(0.300000011920928955078125, 0.300000011920928955078125, 0.4000000059604644775390625);
+        _42 = SkyColors.ground_color;
     }
     else
     {
-        _43 = mix(SkyColors.horizon_color, SkyColors.zenith_color, float4(fast::clamp(_29 * 0.89999997615814208984375, 0.0, 1.0))).xyz;
+        _42 = mix(float3(SkyColors.horizon_color), float3(SkyColors.zenith_color), float3(fast::clamp(_27 * 0.89999997615814208984375, 0.0, 1.0)));
     }
-    out.out_var_SV_Target0 = float4(_43, 1.0);
+    out.out_var_SV_Target0 = float4(_42, 1.0);
     return out;
 }
 

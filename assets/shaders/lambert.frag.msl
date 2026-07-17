@@ -6,7 +6,9 @@ using namespace metal;
 struct type_UniformBlock
 {
     float4 Color;
-    float3 LightDirection;
+    packed_float3 LightDirection;
+    float Pad1;
+    float3 AmbientColor;
 };
 
 struct main0_out
@@ -22,7 +24,7 @@ struct main0_in
 fragment main0_out main0(main0_in in [[stage_in]], constant type_UniformBlock& UniformBlock [[buffer(0)]])
 {
     main0_out out = {};
-    out.out_var_SV_Target0 = UniformBlock.Color * precise::max(0.0, dot(in.in_var_TEXCOORD0, UniformBlock.LightDirection));
+    out.out_var_SV_Target0 = float4(UniformBlock.Color.xyz * (UniformBlock.AmbientColor + float3(precise::max(0.0, dot(in.in_var_TEXCOORD0, float3(UniformBlock.LightDirection))))), 1.0);
     return out;
 }
 

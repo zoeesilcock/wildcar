@@ -22,6 +22,7 @@ const Vector3 = math.Vector3;
 const Transform = math.Transform;
 const Quaternion = math.Quaternion;
 const Color = math.Color;
+const Color3 = math.Color3;
 const Vector2 = math.Vector2;
 const X = math.X;
 const Y = math.Y;
@@ -44,7 +45,12 @@ pub const State = struct {
     camera: renderer.Camera,
     entities: std.ArrayList(Entity),
     world_id: c.b3WorldId = undefined,
+
     light_direction: Vector3 = .{ 0, 1, 0 },
+    sky_color_horizon: Color3 = .{ 0.8, 0.8, 1 },
+    sky_color_zenith: Color3 = .{ 0.2, 0.2, 0.75 },
+    sky_color_ground: Color3 = .{ 0.3, 0.3, 0.4 },
+    ambient_strength: f32 = 0.3,
 
     input: Input = .{},
 
@@ -384,12 +390,25 @@ pub export fn draw(state_ptr: GameLib.GameStatePtr) void {
 
     var frame_context = renderer.beginFrame(&state.renderer, &state.camera);
     {
-        renderer.drawSky(&state.renderer, &frame_context, &state.camera, .{ 0.8, 0.8, 1, 1 }, .{ 0.2, 0.2, 0.75, 1 });
+        renderer.drawSky(
+            &state.renderer,
+            &frame_context,
+            &state.camera,
+            .{
+                .horizon_color = state.sky_color_horizon,
+                .zenith_color = state.sky_color_zenith,
+                .ground_color = state.sky_color_ground,
+            },
+        );
+        const ambient_color =
+            ((state.sky_color_horizon + state.sky_color_zenith) / @as(Color3, @splat(2))) *
+            @as(Color3, @splat(state.ambient_strength));
 
         for (state.entities.items) |entity| {
             renderer.drawCube(&state.renderer, &frame_context, entity.transform, .{
                 .color = entity.color,
                 .light_direction = state.light_direction,
+                .ambient_color = ambient_color,
             });
 
             if (INTERNAL) {
@@ -408,6 +427,7 @@ pub export fn draw(state_ptr: GameLib.GameStatePtr) void {
                     }, .{
                         .color = if (entity.is_dynamic) .{ 0, 1, 0, 1 } else .{ 1, 1, 0, 1 },
                         .light_direction = state.light_direction,
+                        .ambient_color = ambient_color,
                     });
                 }
             }

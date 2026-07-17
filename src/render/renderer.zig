@@ -58,7 +58,9 @@ const LambertVertexUniforms = extern struct {
 const LambertFragmentUniforms = extern struct {
     color: [4]f32,
     light_direction: [3]f32,
-    _pad: f32 = 0,
+    _pad1: f32 = 0,
+    ambient_color: [3]f32,
+    _pad2: f32 = 0,
 };
 
 pub const SkyVertexUniforms = extern struct {
@@ -70,8 +72,12 @@ pub const SkyVertexUniforms = extern struct {
 };
 
 pub const SkyFragmentUniforms = extern struct {
-    horizon_color: [4]f32,
-    zenith_color: [4]f32,
+    horizon_color: [3]f32,
+    _pad1: f32 = 0,
+    zenith_color: [3]f32,
+    _pad2: f32 = 0,
+    ground_color: [3]f32,
+    _pad3: f32 = 0,
 };
 
 pub const ScreenFragmentUniforms = extern struct {
@@ -219,8 +225,7 @@ pub fn drawSky(
     context: *RendererContext,
     frame: *FrameContext,
     camera: *Camera,
-    horizon_color: Color,
-    zenith_color: Color,
+    fragment_uniforms: SkyFragmentUniforms,
 ) void {
     bindSkyPipeline(context, frame);
 
@@ -234,7 +239,6 @@ pub fn drawSky(
     };
     sdl.SDL_PushGPUVertexUniformData(frame.command_buffer, 0, &vertex_uniforms, @sizeOf(SkyVertexUniforms));
 
-    const fragment_uniforms: SkyFragmentUniforms = .{ .horizon_color = horizon_color, .zenith_color = zenith_color };
     sdl.SDL_PushGPUFragmentUniformData(frame.command_buffer, 0, &fragment_uniforms, @sizeOf(SkyFragmentUniforms));
 
     sdl.SDL_DrawGPUPrimitives(frame.render_pass, 3, 1, 0, 0);
@@ -244,34 +248,34 @@ pub fn drawCube(
     context: *RendererContext,
     frame: *FrameContext,
     transform: Transform,
-    uniforms: LambertFragmentUniforms,
+    fragment_uniforms: LambertFragmentUniforms,
 ) void {
     bindFillPipeline(context, frame);
-    drawCubeInternal(context, frame, transform, uniforms);
+    drawCubeInternal(context, frame, transform, fragment_uniforms);
 }
 
 pub fn drawLineCube(
     context: *RendererContext,
     frame: *FrameContext,
     transform: Transform,
-    uniforms: LambertFragmentUniforms,
+    fragment_uniforms: LambertFragmentUniforms,
 ) void {
     bindLinePipeline(context, frame);
-    drawCubeInternal(context, frame, transform, uniforms);
+    drawCubeInternal(context, frame, transform, fragment_uniforms);
 }
 
 fn drawCubeInternal(
     context: *RendererContext,
     frame: *FrameContext,
     transform: Transform,
-    uniforms: LambertFragmentUniforms,
+    fragment_uniforms: LambertFragmentUniforms,
 ) void {
     const model_matrix: Matrix4x4 = Camera.calculateModelMatrix(transform);
     const mvp = frame.view_projection.multiply(model_matrix);
     const vertex_uniforms: LambertVertexUniforms = .{ .mvp = mvp, .model = model_matrix };
     sdl.SDL_PushGPUVertexUniformData(frame.command_buffer, 0, &vertex_uniforms, @sizeOf(LambertVertexUniforms));
 
-    sdl.SDL_PushGPUFragmentUniformData(frame.command_buffer, 0, &uniforms, @sizeOf(LambertFragmentUniforms));
+    sdl.SDL_PushGPUFragmentUniformData(frame.command_buffer, 0, &fragment_uniforms, @sizeOf(LambertFragmentUniforms));
 
     sdl.SDL_DrawGPUIndexedPrimitives(frame.render_pass, context.cube_mesh.index_count, 1, 0, 0, 0);
 }
@@ -279,7 +283,7 @@ fn drawCubeInternal(
 pub fn compositeToSwapchain(
     context: *RendererContext,
     frame: *FrameContext,
-    uniforms: ScreenFragmentUniforms,
+    fragment_uniforms: ScreenFragmentUniforms,
 ) *sdl.SDL_GPUTexture {
     sdl.SDL_EndGPURenderPass(frame.render_pass);
 
@@ -301,7 +305,7 @@ pub fn compositeToSwapchain(
         1,
         null,
     );
-    sdl.SDL_PushGPUFragmentUniformData(frame.command_buffer, 0, &uniforms, @sizeOf(ScreenFragmentUniforms));
+    sdl.SDL_PushGPUFragmentUniformData(frame.command_buffer, 0, &fragment_uniforms, @sizeOf(ScreenFragmentUniforms));
     bindScreenPipeline(context, frame);
     sdl.SDL_DrawGPUIndexedPrimitives(frame.render_pass, context.quad_mesh.index_count, 1, 0, 0, 0);
     sdl.SDL_EndGPURenderPass(frame.render_pass);
