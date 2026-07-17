@@ -1,6 +1,10 @@
 cbuffer UniformBlock : register(b0, space3)
 {
     float4 Color;
+};
+
+cbuffer LightingBlock : register(b1, space3)
+{
     float3 LightDirection;
     float Pad1;
     float3 LightColor;

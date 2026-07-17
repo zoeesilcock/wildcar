@@ -402,16 +402,21 @@ pub export fn draw(state_ptr: GameLib.GameStatePtr) void {
                 .ground_color = state.sky_color_ground,
             },
         );
-        const ambient_color =
-            ((state.sky_color_horizon + state.sky_color_zenith) / @as(Color3, @splat(2))) *
-            @as(Color3, @splat(state.ambient_strength));
+
+        renderer.submitLighting(
+            &state.renderer,
+            &frame_context,
+            .{
+                .light_color = state.light_color,
+                .light_direction = state.light_direction,
+                .ambient_color = ((state.sky_color_horizon + state.sky_color_zenith) / @as(Color3, @splat(2))) *
+                    @as(Color3, @splat(state.ambient_strength)),
+            },
+        );
 
         for (state.entities.items) |entity| {
             renderer.drawCube(&state.renderer, &frame_context, entity.transform, .{
                 .color = entity.color,
-                .light_color = state.light_color,
-                .light_direction = state.light_direction,
-                .ambient_color = ambient_color,
             });
 
             if (INTERNAL) {
@@ -429,9 +434,6 @@ pub export fn draw(state_ptr: GameLib.GameStatePtr) void {
                         },
                     }, .{
                         .color = if (entity.is_dynamic) .{ 0, 1, 0, 1 } else .{ 1, 1, 0, 1 },
-                        .light_direction = state.light_direction,
-                        .light_color = state.light_color,
-                        .ambient_color = ambient_color,
                     });
                 }
             }

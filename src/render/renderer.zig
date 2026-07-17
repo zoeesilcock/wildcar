@@ -57,6 +57,9 @@ const LambertVertexUniforms = extern struct {
 
 const LambertFragmentUniforms = extern struct {
     color: [4]f32,
+};
+
+const LightFragmentUniforms = extern struct {
     light_direction: [3]f32,
     _pad1: f32 = 0,
     light_color: [3]f32,
@@ -244,6 +247,11 @@ pub fn drawSky(
     sdl.SDL_PushGPUFragmentUniformData(frame.command_buffer, 0, &fragment_uniforms, @sizeOf(SkyFragmentUniforms));
 
     sdl.SDL_DrawGPUPrimitives(frame.render_pass, 3, 1, 0, 0);
+}
+
+pub fn submitLighting(context: *RendererContext, frame: *FrameContext, fragment_uniforms: LightFragmentUniforms) void {
+    _ = context;
+    sdl.SDL_PushGPUFragmentUniformData(frame.command_buffer, 1, &fragment_uniforms, @sizeOf(LightFragmentUniforms));
 }
 
 pub fn drawCube(
