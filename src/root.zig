@@ -392,17 +392,24 @@ pub export fn draw(state_ptr: GameLib.GameStatePtr) void {
                 .light_direction = state.light_direction,
             });
 
-            if (state.internal.show_collision_bodies) {
-                const body_transform: c.b3Transform = c.b3Body_GetTransform(entity.body_id);
+            if (INTERNAL) {
+                if (state.internal.show_collision_bodies) {
+                    const body_transform: c.b3Transform = c.b3Body_GetTransform(entity.body_id);
 
-                renderer.drawLineCube(&state.renderer, &frame_context, .{
-                    .position = .{ body_transform.p.x, body_transform.p.y, body_transform.p.z },
-                    .scale = entity.transform.scale,
-                    .rotation = .{ body_transform.q.v.x, body_transform.q.v.y, body_transform.q.v.z, body_transform.q.s },
-                }, .{
-                    .color = if (entity.is_dynamic) .{ 0, 1, 0, 1 } else .{ 1, 1, 0, 1 },
-                    .light_direction = state.light_direction,
-                });
+                    renderer.drawLineCube(&state.renderer, &frame_context, .{
+                        .position = .{ body_transform.p.x, body_transform.p.y, body_transform.p.z },
+                        .scale = entity.transform.scale,
+                        .rotation = .{
+                            body_transform.q.v.x,
+                            body_transform.q.v.y,
+                            body_transform.q.v.z,
+                            body_transform.q.s,
+                        },
+                    }, .{
+                        .color = if (entity.is_dynamic) .{ 0, 1, 0, 1 } else .{ 1, 1, 0, 1 },
+                        .light_direction = state.light_direction,
+                    });
+                }
             }
         }
 
