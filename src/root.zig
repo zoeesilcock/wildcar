@@ -367,13 +367,16 @@ pub export fn tick(state_ptr: GameLib.GameStatePtr, time: u64, delta_time: u64) 
             state.camera.orbit(mouse_delta);
         }
 
-        if (state.input.middle_mouse.down) {
-            state.camera.zoom(mouse_delta[Y]);
-        }
-
         if (state.camera.mode == .Orbit) {
             if (state.input.middle_mouse.down) {
                 state.camera.zoom(mouse_delta[Y]);
+            }
+
+            if (state.input.forward_button.down) {
+                state.camera.zoom(keyboard_speed);
+            }
+            if (state.input.backward_button.down) {
+                state.camera.zoom(-keyboard_speed);
             }
         } else if (state.camera.mode == .Free) {
             if (state.input.middle_mouse.down) {
