@@ -14,9 +14,15 @@ Learning about 3D rendering and car physics.
 * F1: Cycle between FPS display modes (none, number, or number and graph).
 * F2: Toggle memory usage.
 * F3: Cycle through camera modes (orbit or free).
+    * Orbit
+        * Left mouse held orbits the target.
+        * Middle mouse held moves closer/farther from the target.
+    * Free
+        * Left mouse held changes facing direction.
+        * Middle mouse held moves forward/backward.
+        * WASD: Moves left/right and forward/backward (hold shift for faster movement).
 * G: Toggle game state inspector.
 * C: Toggle showing collision bodies.
-* WASD: Move camera in free mode (hold shift for faster movement).
 
 
 ## Development

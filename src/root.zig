@@ -296,14 +296,20 @@ pub export fn processInput(state_ptr: GameLib.GameStatePtr) bool {
 
         // Mouse movement.
         if (event.type == sdl.SDL_EVENT_MOUSE_MOTION) {
-            const new_position: Vector2 = .{ event.motion.x, event.motion.y };
-            state.input.mouse_delta = state.input.mouse_position - new_position;
-            state.input.mouse_position = new_position;
+            const new_position: Vector2 = .{ event.motion.xrel, event.motion.yrel };
+            state.input.mouse_delta = new_position;
+            state.input.mouse_position = .{ event.motion.x, event.motion.y };
         }
 
         // Mouse buttons.
         if (event.type == sdl.SDL_EVENT_MOUSE_BUTTON_DOWN or event.type == sdl.SDL_EVENT_MOUSE_BUTTON_UP) {
             const is_down = event.type == sdl.SDL_EVENT_MOUSE_BUTTON_DOWN;
+
+            if (event.type == sdl.SDL_EVENT_MOUSE_BUTTON_DOWN) {
+                _ = sdl.SDL_SetWindowRelativeMouseMode(state.dependencies.window, true);
+            } else {
+                _ = sdl.SDL_SetWindowRelativeMouseMode(state.dependencies.window, false);
+            }
 
             switch (event.button.button) {
                 1 => {
@@ -353,8 +359,9 @@ pub export fn tick(state_ptr: GameLib.GameStatePtr, time: u64, delta_time: u64) 
 
     // Camera.
     {
-        const mouse_delta = state.input.mouse_delta * @as(Vector2, @splat(state.deltaTimeActual()));
         const keyboard_speed: f32 = if (state.input.shift_is_down) 0.4 else 0.1;
+        const mouse_sensitivity: Vector2 = @splat(0.25);
+        const mouse_delta = mouse_sensitivity * state.input.mouse_delta * @as(Vector2, @splat(state.deltaTimeActual()));
 
         if (state.input.left_mouse.down) {
             state.camera.orbit(mouse_delta);
