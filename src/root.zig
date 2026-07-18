@@ -86,6 +86,8 @@ const Input = struct {
     mouse_position: Vector2 = .{ 0, 0 },
     mouse_delta: Vector2 = .{ 0, 0 },
 
+    shift_is_down: bool = false,
+
     forward_button: Button = .{},
     backward_button: Button = .{},
     left_button: Button = .{},
@@ -232,6 +234,10 @@ pub export fn processInput(state_ptr: GameLib.GameStatePtr) bool {
             break;
         }
 
+        if (event.key.key == sdl.SDLK_LSHIFT or event.key.key == sdl.SDLK_RSHIFT) {
+            state.input.shift_is_down = event.type == sdl.SDL_EVENT_KEY_DOWN;
+        }
+
         if (event.type == sdl.SDL_EVENT_KEY_DOWN) {
             switch (event.key.key) {
                 sdl.SDLK_P => {
@@ -348,7 +354,7 @@ pub export fn tick(state_ptr: GameLib.GameStatePtr, time: u64, delta_time: u64) 
     // Camera.
     {
         const mouse_delta = state.input.mouse_delta * @as(Vector2, @splat(state.deltaTimeActual()));
-        const keyboard_speed: f32 = 0.1;
+        const keyboard_speed: f32 = if (state.input.shift_is_down) 0.4 else 0.1;
 
         if (state.input.left_mouse.down) {
             state.camera.orbit(mouse_delta);

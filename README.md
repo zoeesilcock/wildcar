@@ -16,6 +16,7 @@ Learning about 3D rendering and car physics.
 * F3: Cycle through camera modes (orbit or free).
 * G: Toggle game state inspector.
 * C: Toggle showing collision bodies.
+* WASD: Move camera in free mode (hold shift for faster movement).
 
 
 ## Development
