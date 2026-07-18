@@ -166,7 +166,7 @@ pub const Camera = struct {
         const proj: Matrix4x4 = .new(.{
             one_over_fov / self.aspect_ratio, 0,            0,                                                                       0,
             0,                                one_over_fov, 0,                                                                       0,
-            0,                                0,            self.near_plane / (self.far_plane - self.near_plane),                     -1,
+            0,                                0,            self.near_plane / (self.far_plane - self.near_plane),                    -1,
             0,                                0,            (self.near_plane * self.far_plane) / (self.far_plane - self.near_plane), 0,
         });
 

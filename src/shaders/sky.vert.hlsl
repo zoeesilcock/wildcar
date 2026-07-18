@@ -3,8 +3,8 @@ cbuffer SkyUniforms : register(b0, space1)
     float3 cam_forward;
     float tan_half_fov;
     float3 cam_right;
-    float3 cam_up;
     float aspect;
+    float3 cam_up;
 };
 
 struct VSOutput

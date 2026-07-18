@@ -416,6 +416,8 @@ pub export fn draw(state_ptr: GameLib.GameStatePtr) void {
                 .horizon_color = state.sky_color_horizon,
                 .zenith_color = state.sky_color_zenith,
                 .ground_color = state.sky_color_ground,
+                .light_color = state.light_color,
+                .light_direction = state.light_direction,
             },
         );
 

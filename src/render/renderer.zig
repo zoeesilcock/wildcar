@@ -83,6 +83,10 @@ pub const SkyFragmentUniforms = extern struct {
     _pad2: f32 = 0,
     ground_color: [3]f32,
     _pad3: f32 = 0,
+    light_color: [3]f32,
+    _pad4: f32 = 0,
+    light_direction: [3]f32,
+    _pad5: f32 = 0,
 };
 
 pub const ScreenFragmentUniforms = extern struct {

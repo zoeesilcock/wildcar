@@ -7,9 +7,9 @@ struct type_SkyUniforms
 {
     packed_float3 cam_forward;
     float tan_half_fov;
-    float3 cam_right;
-    packed_float3 cam_up;
+    packed_float3 cam_right;
     float aspect;
+    float3 cam_up;
 };
 
 struct main0_out
@@ -24,7 +24,7 @@ vertex main0_out main0(constant type_SkyUniforms& SkyUniforms [[buffer(0)]], uin
     float _34 = (gl_VertexIndex == 2u) ? 3.0 : (-1.0);
     float _36 = (gl_VertexIndex == 1u) ? 3.0 : (-1.0);
     out.gl_Position = float4(_34, _36, 1.0, 1.0);
-    out.out_var_TEXCOORD0 = (float3(SkyUniforms.cam_forward) + (((SkyUniforms.cam_right * _34) * SkyUniforms.tan_half_fov) * SkyUniforms.aspect)) + ((float3(SkyUniforms.cam_up) * _36) * SkyUniforms.tan_half_fov);
+    out.out_var_TEXCOORD0 = (float3(SkyUniforms.cam_forward) + (((float3(SkyUniforms.cam_right) * _34) * SkyUniforms.tan_half_fov) * SkyUniforms.aspect)) + ((SkyUniforms.cam_up * _36) * SkyUniforms.tan_half_fov);
     return out;
 }
 

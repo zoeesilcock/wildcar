@@ -3,13 +3,17 @@
 
 using namespace metal;
 
-struct type_SkyColors
+struct type_SkyUniforms
 {
     packed_float3 horizon_color;
     float _pad1;
     packed_float3 zenith_color;
     float _pad2;
-    float3 ground_color;
+    packed_float3 ground_color;
+    float _pad3;
+    packed_float3 light_color;
+    float _pad4;
+    float3 light_direction;
 };
 
 struct main0_out
@@ -22,21 +26,21 @@ struct main0_in
     float3 in_var_TEXCOORD0 [[user(locn0)]];
 };
 
-fragment main0_out main0(main0_in in [[stage_in]], constant type_SkyColors& SkyColors [[buffer(0)]])
+fragment main0_out main0(main0_in in [[stage_in]], constant type_SkyUniforms& SkyUniforms [[buffer(0)]])
 {
     main0_out out = {};
-    float3 _26 = fast::normalize(in.in_var_TEXCOORD0);
-    float _27 = _26.y;
-    float3 _42;
-    if (_27 < 0.0)
+    float3 _30 = fast::normalize(in.in_var_TEXCOORD0);
+    float _35 = _30.y;
+    float3 _55;
+    if (_35 < 0.0)
     {
-        _42 = SkyColors.ground_color;
+        _55 = float3(SkyUniforms.ground_color);
     }
     else
     {
-        _42 = mix(float3(SkyColors.horizon_color), float3(SkyColors.zenith_color), float3(fast::clamp(_27 * 0.89999997615814208984375, 0.0, 1.0)));
+        _55 = mix(mix(float3(SkyUniforms.horizon_color), float3(SkyUniforms.zenith_color), float3(fast::clamp(_35 * 0.89999997615814208984375, 0.0, 1.0))), float3(SkyUniforms.light_color), float3(smoothstep(0.994000017642974853515625, 0.995999991893768310546875, dot(_30, fast::normalize(SkyUniforms.light_direction)))));
     }
-    out.out_var_SV_Target0 = float4(_42, 1.0);
+    out.out_var_SV_Target0 = float4(_55, 1.0);
     return out;
 }
 
