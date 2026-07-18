@@ -21,8 +21,35 @@ pub const A = 3;
 pub const Transform = struct {
     position: Vector3 = .{ 0, 0, 0 },
     scale: Vector3 = .{ 1, 1, 1 },
-    rotation: Quaternion = .{ 0, 0, 0, 0 },
+    rotation: Quaternion = .{ 0, 0, 0, 1 },
+
+    pub fn relativeTo(self: Transform, parent: Transform) Transform {
+        return .{
+            .position = parent.position + rotateVectorBy(self.position, parent.rotation),
+            .scale = self.scale,
+            .rotation = multiplyQuaternion(parent.rotation, self.rotation),
+        };
+    }
 };
+
+pub fn multiplyQuaternion(a: Quaternion, b: Quaternion) Quaternion {
+    return .{
+        a[W] * b[X] + a[X] * b[W] + a[Y] * b[Z] - a[Z] * b[Y],
+        a[W] * b[Y] - a[X] * b[Z] + a[Y] * b[W] + a[Z] * b[X],
+        a[W] * b[Z] + a[X] * b[Y] - a[Y] * b[X] + a[Z] * b[W],
+        a[W] * b[W] - a[X] * b[X] - a[Y] * b[Y] - a[Z] * b[Z],
+    };
+}
+
+pub fn conjugateQuaternion(quaternion: Quaternion) Quaternion {
+    return .{ -quaternion[X], -quaternion[Y], -quaternion[Z], quaternion[W] };
+}
+
+pub fn rotateVectorBy(vector: Vector3, quaternion: Quaternion) Vector3 {
+    var q = multiplyQuaternion(quaternion, .{ vector[X], vector[Y], vector[Z], 0 });
+    q = multiplyQuaternion(q, conjugateQuaternion(quaternion));
+    return .{ q[X], q[Y], q[Z] };
+}
 
 pub const Rect = struct {
     position: Vector2 = @splat(0),

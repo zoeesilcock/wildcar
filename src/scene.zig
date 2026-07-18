@@ -19,6 +19,7 @@ const SceneEntity = struct {
     rotation: Vector3,
     color: Color = .{ 0.9, 0.3, 0.2, 1 },
     is_dynamic: bool = false,
+    children: []SceneEntity = &.{},
 };
 
 const Scene = struct {
@@ -62,7 +63,20 @@ pub fn load(state: *State) void {
             },
             .is_dynamic = item.is_dynamic,
             .color = item.color,
+            .children = state.allocator.alloc(game.Entity, item.children.len) catch @panic("Failed to allocate child entities"),
         };
+
+        for (item.children, 0..) |child, i| {
+            entity.children[i] = .{
+                .transform = .{
+                    .position = child.position,
+                    .scale = child.scale,
+                    .rotation = math.eulerToQuaternion(child.rotation),
+                },
+                .is_dynamic = child.is_dynamic,
+                .color = child.color,
+            };
+        }
 
         var body_def: c.b3BodyDef = c.b3DefaultBodyDef();
         body_def.position = .{

@@ -127,11 +127,12 @@ const Input = struct {
     }
 };
 
-const Entity = struct {
+pub const Entity = struct {
     transform: Transform = .{},
     color: Color = .{ 0.9, 0.3, 0.2, 1 },
     body_id: c.b3BodyId = undefined,
     is_dynamic: bool = false,
+    children: []Entity = &.{},
 };
 
 pub var settings: GameLib.Settings = .{
@@ -436,6 +437,12 @@ pub export fn draw(state_ptr: GameLib.GameStatePtr) void {
             renderer.drawCube(&state.renderer, &frame_context, entity.transform, .{
                 .color = entity.color,
             });
+
+            for (entity.children) |child| {
+                renderer.drawCube(&state.renderer, &frame_context, child.transform.relativeTo(entity.transform), .{
+                    .color = child.color,
+                });
+            }
 
             if (INTERNAL) {
                 if (state.internal.show_collision_bodies) {
