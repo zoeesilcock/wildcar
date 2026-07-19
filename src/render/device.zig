@@ -117,6 +117,40 @@ pub fn initWindowSize(context: *RendererContext, width: *u32, height: *u32) void
     } else {
         @panic("Failed to create depth stencil texture");
     }
+
+    if (sdl.SDL_CreateGPUTexture(
+        context.gpu_device,
+        &.{
+            .type = sdl.SDL_GPU_TEXTURETYPE_2D,
+            .width = 2048,
+            .height = 2048,
+            .layer_count_or_depth = 1,
+            .num_levels = 1,
+            .sample_count = sdl.SDL_GPU_SAMPLECOUNT_1,
+            .format = context.depth_stencil_format,
+            .usage = sdl.SDL_GPU_TEXTUREUSAGE_DEPTH_STENCIL_TARGET | sdl.SDL_GPU_TEXTUREUSAGE_SAMPLER,
+        },
+    )) |texture| {
+        context.shadow_depth_texture = texture;
+    } else {
+        @panic("Failed to create shadow depth texture");
+    }
+
+    if (sdl.SDL_CreateGPUSampler(
+        context.gpu_device,
+        &.{
+            .min_filter = sdl.SDL_GPU_FILTER_NEAREST,
+            .mag_filter = sdl.SDL_GPU_FILTER_NEAREST,
+            .mipmap_mode = sdl.SDL_GPU_SAMPLERMIPMAPMODE_LINEAR,
+            .address_mode_u = sdl.SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE,
+            .address_mode_v = sdl.SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE,
+            .address_mode_w = sdl.SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE,
+        },
+    )) |sampler| {
+        context.shadow_depth_texture_sampler = sampler;
+    } else {
+        @panic("Failed to create shadow depth texture sampler");
+    }
 }
 
 pub fn deinitWindowSize(context: *RendererContext) void {
@@ -124,6 +158,8 @@ pub fn deinitWindowSize(context: *RendererContext) void {
     sdl.SDL_ReleaseGPUSampler(context.gpu_device, context.render_texture_sampler);
     sdl.SDL_ReleaseGPUTexture(context.gpu_device, context.resolve_texture);
     sdl.SDL_ReleaseGPUTexture(context.gpu_device, context.depth_stencil_texture);
+    sdl.SDL_ReleaseGPUTexture(context.gpu_device, context.shadow_depth_texture);
+    sdl.SDL_ReleaseGPUSampler(context.gpu_device, context.shadow_depth_texture_sampler);
 }
 
 pub fn getSwapchainTexture(context: *RendererContext, frame: *FrameContext) ?*sdl.SDL_GPUTexture {

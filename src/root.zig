@@ -407,7 +407,18 @@ pub export fn tick(state_ptr: GameLib.GameStatePtr, time: u64, delta_time: u64) 
 pub export fn draw(state_ptr: GameLib.GameStatePtr) void {
     const state: *State = @ptrCast(@alignCast(state_ptr));
 
-    var frame_context = renderer.beginFrame(&state.renderer, &state.camera);
+    var frame_context = renderer.beginFrame(&state.renderer, &state.camera, state.light_direction);
+    renderer.beginShadowPass(&state.renderer, &frame_context);
+    {
+        for (state.entities.items) |entity| {
+            renderer.drawCubeShadow(&state.renderer, &frame_context, entity.transform);
+
+            for (entity.children) |child| {
+                renderer.drawCubeShadow(&state.renderer, &frame_context, child.transform.relativeTo(entity.transform));
+            }
+        }
+    }
+    renderer.beginDrawPass(&state.renderer, &frame_context);
     {
         renderer.drawSky(
             &state.renderer,
@@ -430,6 +441,7 @@ pub export fn draw(state_ptr: GameLib.GameStatePtr) void {
                 .light_direction = state.light_direction,
                 .ambient_color = ((state.sky_color_horizon + state.sky_color_zenith) / @as(Color3, @splat(2))) *
                     @as(Color3, @splat(state.ambient_strength)),
+                .light_view_projection = frame_context.light_view_projection.values,
             },
         );
 

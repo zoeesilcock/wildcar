@@ -13,13 +13,17 @@ struct Input
 struct Output
 {
     float3 Normal : TEXCOORD0;
+    float3 WorldPosition : TEXCOORD1;
     float4 Position : SV_Position;
 };
 
 Output main(Input input)
 {
     Output output;
+    float4 worldPosition = mul(Model, float4(input.Position, 1.0));
+
     output.Normal = normalize(mul((float3x3)Model, input.Normal));
+    output.WorldPosition = worldPosition.xyz;
     output.Position = mul(Transform, float4(input.Position, 1.0));
     return output;
 }

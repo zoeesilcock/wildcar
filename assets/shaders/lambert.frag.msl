@@ -10,6 +10,7 @@ struct type_UniformBlock
 
 struct type_LightingBlock
 {
+    float4x4 LightViewProjection;
     packed_float3 LightDirection;
     float Pad1;
     packed_float3 LightColor;
@@ -25,12 +26,75 @@ struct main0_out
 struct main0_in
 {
     float3 in_var_TEXCOORD0 [[user(locn0)]];
+    float3 in_var_TEXCOORD1 [[user(locn1)]];
 };
 
-fragment main0_out main0(main0_in in [[stage_in]], constant type_UniformBlock& UniformBlock [[buffer(0)]], constant type_LightingBlock& LightingBlock [[buffer(1)]])
+fragment main0_out main0(main0_in in [[stage_in]], constant type_UniformBlock& UniformBlock [[buffer(0)]], constant type_LightingBlock& LightingBlock [[buffer(1)]], texture2d<float> ShadowMap [[texture(0)]], sampler ShadowSampler [[sampler(0)]])
 {
     main0_out out = {};
-    out.out_var_SV_Target0 = float4(UniformBlock.Color.xyz * (LightingBlock.AmbientColor + (float3(LightingBlock.LightColor) * precise::max(0.0, dot(in.in_var_TEXCOORD0, float3(LightingBlock.LightDirection))))), 1.0);
+    float4 _52 = LightingBlock.LightViewProjection * float4(in.in_var_TEXCOORD1, 1.0);
+    float3 _56 = _52.xyz / float3(_52.w);
+    float2 _59 = (_56.xy * 0.5) + float2(0.5);
+    float _61 = 1.0 - _59.y;
+    float2 _62 = _59;
+    _62.y = _61;
+    float _63 = _56.z;
+    float _64 = _59.x;
+    bool _69;
+    if (_64 >= 0.0)
+    {
+        _69 = _64 <= 1.0;
+    }
+    else
+    {
+        _69 = false;
+    }
+    bool _73;
+    if (_69)
+    {
+        _73 = _61 >= 0.0;
+    }
+    else
+    {
+        _73 = false;
+    }
+    bool _77;
+    if (_73)
+    {
+        _77 = _61 <= 1.0;
+    }
+    else
+    {
+        _77 = false;
+    }
+    bool _81;
+    if (_77)
+    {
+        _81 = _63 >= 0.0;
+    }
+    else
+    {
+        _81 = false;
+    }
+    bool _85;
+    if (_81)
+    {
+        _85 = _63 <= 1.0;
+    }
+    else
+    {
+        _85 = false;
+    }
+    float _96;
+    if (_85)
+    {
+        _96 = float(_63 >= (ShadowMap.sample(ShadowSampler, _62).x - 0.001000000047497451305389404296875));
+    }
+    else
+    {
+        _96 = 1.0;
+    }
+    out.out_var_SV_Target0 = float4(UniformBlock.Color.xyz * (LightingBlock.AmbientColor + ((float3(LightingBlock.LightColor) * precise::max(0.0, dot(in.in_var_TEXCOORD0, float3(LightingBlock.LightDirection)))) * _96)), 1.0);
     return out;
 }
 

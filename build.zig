@@ -17,6 +17,8 @@ const SHADERS: []const []const u8 = &.{
     "sky.vert",
     "screen.vert",
     "screen.frag",
+    "shadow.vert",
+    "shadow.frag",
 };
 
 var log_allocations: bool = false;

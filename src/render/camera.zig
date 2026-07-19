@@ -181,10 +181,49 @@ pub const Camera = struct {
         return proj.multiply(view);
     }
 
+    pub fn calculateDirectionalLightViewProjectionMatrix(light_direction: Vector3, scene_center: Vector3) Matrix4x4 {
+        const light_distance: f32 = 50;
+        const light_position: Vector3 =
+            scene_center + math.normalizeV3(light_direction) * @as(Vector3, @splat(light_distance));
+        const light_target: Vector3 = scene_center;
+
+        const b = calculateViewBasis(light_position, light_target, .{ 0, 1, 0 });
+
+        const view: Matrix4x4 = .new(.{
+            b.right[X],                           b.up[X],                           b.back[X],                           0,
+            b.right[Y],                           b.up[Y],                           b.back[Y],                           0,
+            b.right[Z],                           b.up[Z],                           b.back[Z],                           0,
+            -math.dotV3(b.right, light_position), -math.dotV3(b.up, light_position), -math.dotV3(b.back, light_position), 1,
+        });
+
+        const half_extent: f32 = 50;
+        const near_plane: f32 = 0.1;
+        const far_plane: f32 = 100;
+
+        const projection: Matrix4x4 = .new(.{
+            1 / half_extent, 0,               0,                                    0,
+            0,               1 / half_extent, 0,                                    0,
+            0,               0,               1 / (far_plane - near_plane),         0,
+            0,               0,               far_plane / (far_plane - near_plane), 1,
+        });
+
+        return projection.multiply(view);
+    }
+
     pub fn getViewBasis(self: *const Camera) Basis {
-        const target_to_position: Vector3 = self.position - self.target;
+        return calculateViewBasis(self.position, self.target, self.up);
+    }
+
+    pub fn calculateViewBasis(position: Vector3, target: Vector3, up_in: Vector3) Basis {
+        const target_to_position: Vector3 = position - target;
         const back: Vector3 = math.normalizeV3(target_to_position);
-        const right: Vector3 = math.normalizeV3(math.crossV3(self.up, back));
+
+        var up = up_in;
+        if (@abs(math.dotV3(back, up)) > 0.99) {
+            up = .{ 0, 0, 1 };
+        }
+
+        const right: Vector3 = math.normalizeV3(math.crossV3(up, back));
         const cam_up: Vector3 = math.crossV3(back, right);
         return .{ .back = back, .right = right, .up = cam_up };
     }

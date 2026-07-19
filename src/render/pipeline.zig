@@ -17,7 +17,7 @@ pub fn init(context: *RendererContext, allocator: std.mem.Allocator, io: std.Io)
     }
     defer sdl.SDL_ReleaseGPUShader(context.gpu_device, vertex_shader);
 
-    const fragment_shader = loadShader(context, "lambert.frag", 0, 2, 0, 0, allocator, io);
+    const fragment_shader = loadShader(context, "lambert.frag", 1, 2, 0, 0, allocator, io);
     if (fragment_shader == null) {
         @panic("Failed to load fragment shader");
     }
@@ -46,6 +46,17 @@ pub fn init(context: *RendererContext, allocator: std.mem.Allocator, io: std.Io)
         @panic("Failed to load sky fragment shader");
     }
     defer sdl.SDL_ReleaseGPUShader(context.gpu_device, sky_fragment_shader);
+
+    const shadow_vertex_shader = loadShader(context, "shadow.vert", 0, 1, 0, 0, allocator, io);
+    if (shadow_vertex_shader == null) {
+        @panic("Failed to load shadow vertex shader");
+    }
+    defer sdl.SDL_ReleaseGPUShader(context.gpu_device, shadow_vertex_shader);
+    const shadow_fragment_shader = loadShader(context, "shadow.frag", 0, 0, 0, 0, allocator, io);
+    if (shadow_fragment_shader == null) {
+        @panic("Failed to load shadow fragment shader");
+    }
+    defer sdl.SDL_ReleaseGPUShader(context.gpu_device, shadow_fragment_shader);
 
     // Fill pipeline.
     const color_target_descriptions = [_]sdl.SDL_GPUColorTargetDescription{.{
@@ -187,6 +198,36 @@ pub fn init(context: *RendererContext, allocator: std.mem.Allocator, io: std.Io)
         @panic("Failed to create sky pipeline.");
     }
 
+    // Shadow pipeline.
+    pipeline_create_info = .{
+        .target_info = .{
+            .num_color_targets = 0,
+            .has_depth_stencil_target = true,
+            .depth_stencil_format = context.depth_stencil_format,
+        },
+        .vertex_input_state = .{
+            .num_vertex_buffers = 1,
+            .vertex_buffer_descriptions = &vertex_buffer_descriptions,
+            .num_vertex_attributes = 2,
+            .vertex_attributes = &vertex_attributes,
+        },
+        .depth_stencil_state = .{
+            .enable_depth_test = true,
+            .enable_depth_write = true,
+            .enable_stencil_test = false,
+            .compare_op = sdl.SDL_GPU_COMPAREOP_GREATER,
+            .write_mask = 0xFF,
+        },
+        .primitive_type = sdl.SDL_GPU_PRIMITIVETYPE_TRIANGLELIST,
+        .vertex_shader = shadow_vertex_shader,
+        .fragment_shader = shadow_fragment_shader,
+    };
+    if (sdl.SDL_CreateGPUGraphicsPipeline(context.gpu_device, &pipeline_create_info)) |shadow_pipeline| {
+        context.shadow_pipeline = shadow_pipeline;
+    } else {
+        @panic("Failed to create shadow pipeline.");
+    }
+
     context.quad_mesh = buffer.upload(context, ScreenVertex, mesh.QUAD_VERTICES, mesh.QUAD_INDICES);
     context.cube_mesh = buffer.upload(context, WorldVertex, mesh.CUBE_VERTICES, mesh.CUBE_INDICES);
 }
@@ -196,6 +237,7 @@ pub fn deinit(context: *RendererContext) void {
     sdl.SDL_ReleaseGPUGraphicsPipeline(context.gpu_device, context.line_pipeline);
     sdl.SDL_ReleaseGPUGraphicsPipeline(context.gpu_device, context.screen_pipeline);
     sdl.SDL_ReleaseGPUGraphicsPipeline(context.gpu_device, context.sky_pipeline);
+    sdl.SDL_ReleaseGPUGraphicsPipeline(context.gpu_device, context.shadow_pipeline);
 
     sdl.SDL_ReleaseGPUBuffer(context.gpu_device, context.cube_mesh.vertex_buffer);
     sdl.SDL_ReleaseGPUBuffer(context.gpu_device, context.cube_mesh.index_buffer);

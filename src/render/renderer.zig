@@ -30,11 +30,15 @@ pub const RendererContext = struct {
     depth_stencil_format: sdl.SDL_GPUTextureFormat = undefined,
     depth_stencil_texture: *sdl.SDL_GPUTexture = undefined,
 
+    shadow_depth_texture: *sdl.SDL_GPUTexture = undefined,
+    shadow_depth_texture_sampler: *sdl.SDL_GPUSampler = undefined,
+
     // Pipeline.
     fill_pipeline: *sdl.SDL_GPUGraphicsPipeline = undefined,
     line_pipeline: *sdl.SDL_GPUGraphicsPipeline = undefined,
     screen_pipeline: *sdl.SDL_GPUGraphicsPipeline = undefined,
     sky_pipeline: *sdl.SDL_GPUGraphicsPipeline = undefined,
+    shadow_pipeline: *sdl.SDL_GPUGraphicsPipeline = undefined,
 
     quad_mesh: MeshBuffer = undefined,
     cube_mesh: MeshBuffer = undefined,
@@ -48,6 +52,7 @@ pub const FrameContext = struct {
     render_pass: ?*sdl.SDL_GPURenderPass = null,
     color_target_info: sdl.SDL_GPUColorTargetInfo = undefined,
     view_projection: Matrix4x4 = undefined,
+    light_view_projection: Matrix4x4 = undefined,
 };
 
 const LambertVertexUniforms = extern struct {
@@ -60,12 +65,17 @@ const LambertFragmentUniforms = extern struct {
 };
 
 const LightFragmentUniforms = extern struct {
+    light_view_projection: [16]f32 = @splat(0),
     light_direction: [3]f32,
     _pad1: f32 = 0,
     light_color: [3]f32,
     _pad2: f32 = 0,
     ambient_color: [3]f32,
     _pad3: f32 = 0,
+};
+
+const ShadowVertexUniforms = extern struct {
+    light_mvp: Matrix4x4,
 };
 
 pub const SkyVertexUniforms = extern struct {
@@ -122,13 +132,43 @@ pub fn reinitWindowSize(context: *RendererContext, settings: *Settings) void {
     device.initWindowSize(context, &settings.window_width, &settings.window_height);
 }
 
-pub fn beginFrame(context: *RendererContext, camera: *const Camera) FrameContext {
+pub fn beginFrame(context: *RendererContext, camera: *const Camera, light_direction: Vector3) FrameContext {
     var frame: FrameContext = .{
         .view_projection = camera.calculateViewProjectionMatrix(),
+        .light_view_projection = Camera.calculateDirectionalLightViewProjectionMatrix(light_direction, camera.target),
     };
 
-    frame.command_buffer =
-        sdl_utils.panicIfNull(sdl.SDL_AcquireGPUCommandBuffer(context.gpu_device), "Failed to acquire GPU command buffer");
+    frame.command_buffer = sdl_utils.panicIfNull(
+        sdl.SDL_AcquireGPUCommandBuffer(context.gpu_device),
+        "Failed to acquire GPU command buffer",
+    );
+
+    return frame;
+}
+
+pub fn beginShadowPass(context: *RendererContext, frame: *FrameContext) void {
+    frame.bound_pipeline = null;
+    frame.bound_mesh = null;
+
+    var depth_stencil_target_info: sdl.SDL_GPUDepthStencilTargetInfo = .{
+        .texture = context.shadow_depth_texture,
+        .cycle = true,
+        .clear_depth = 0,
+        .clear_stencil = 0,
+        .load_op = sdl.SDL_GPU_LOADOP_CLEAR,
+        .store_op = sdl.SDL_GPU_STOREOP_STORE,
+        .stencil_load_op = sdl.SDL_GPU_LOADOP_CLEAR,
+        .stencil_store_op = sdl.SDL_GPU_STOREOP_STORE,
+    };
+
+    frame.render_pass = sdl.SDL_BeginGPURenderPass(frame.command_buffer, null, 0, &depth_stencil_target_info);
+}
+
+pub fn beginDrawPass(context: *RendererContext, frame: *FrameContext) void {
+    sdl.SDL_EndGPURenderPass(frame.render_pass);
+
+    frame.bound_pipeline = null;
+    frame.bound_mesh = null;
 
     frame.color_target_info = .{
         .texture = context.render_texture,
@@ -159,8 +199,6 @@ pub fn beginFrame(context: *RendererContext, camera: *const Camera) FrameContext
         1,
         &depth_stencil_target_info,
     );
-
-    return frame;
 }
 
 fn bindFillPipeline(context: *RendererContext, frame: *FrameContext) void {
@@ -178,12 +216,39 @@ fn bindFillPipeline(context: *RendererContext, frame: *FrameContext) void {
         );
         frame.bound_mesh = &context.cube_mesh;
     }
+
+    sdl.SDL_BindGPUFragmentSamplers(
+        frame.render_pass,
+        0,
+        &.{
+            .texture = context.shadow_depth_texture,
+            .sampler = context.shadow_depth_texture_sampler,
+        },
+        1,
+    );
 }
 
 fn bindLinePipeline(context: *RendererContext, frame: *FrameContext) void {
     if (frame.bound_pipeline != context.line_pipeline) {
         sdl.SDL_BindGPUGraphicsPipeline(frame.render_pass, context.line_pipeline);
         frame.bound_pipeline = context.line_pipeline;
+    }
+
+    if (frame.bound_mesh != &context.cube_mesh) {
+        sdl.SDL_BindGPUVertexBuffers(frame.render_pass, 0, &.{ .buffer = context.cube_mesh.vertex_buffer, .offset = 0 }, 1);
+        sdl.SDL_BindGPUIndexBuffer(
+            frame.render_pass,
+            &.{ .buffer = context.cube_mesh.index_buffer, .offset = 0 },
+            sdl.SDL_GPU_INDEXELEMENTSIZE_16BIT,
+        );
+        frame.bound_mesh = &context.cube_mesh;
+    }
+}
+
+fn bindShadowPipeline(context: *RendererContext, frame: *FrameContext) void {
+    if (frame.bound_pipeline != context.shadow_pipeline) {
+        sdl.SDL_BindGPUGraphicsPipeline(frame.render_pass, context.shadow_pipeline);
+        frame.bound_pipeline = context.shadow_pipeline;
     }
 
     if (frame.bound_mesh != &context.cube_mesh) {
@@ -290,6 +355,21 @@ fn drawCubeInternal(
     sdl.SDL_PushGPUVertexUniformData(frame.command_buffer, 0, &vertex_uniforms, @sizeOf(LambertVertexUniforms));
 
     sdl.SDL_PushGPUFragmentUniformData(frame.command_buffer, 0, &fragment_uniforms, @sizeOf(LambertFragmentUniforms));
+
+    sdl.SDL_DrawGPUIndexedPrimitives(frame.render_pass, context.cube_mesh.index_count, 1, 0, 0, 0);
+}
+
+pub fn drawCubeShadow(
+    context: *RendererContext,
+    frame: *FrameContext,
+    transform: Transform,
+) void {
+    bindShadowPipeline(context, frame);
+
+    const model_matrix: Matrix4x4 = Camera.calculateModelMatrix(transform);
+    const light_mvp = frame.light_view_projection.multiply(model_matrix);
+    const vertex_uniforms: ShadowVertexUniforms = .{ .light_mvp = light_mvp };
+    sdl.SDL_PushGPUVertexUniformData(frame.command_buffer, 0, &vertex_uniforms, @sizeOf(ShadowVertexUniforms));
 
     sdl.SDL_DrawGPUIndexedPrimitives(frame.render_pass, context.cube_mesh.index_count, 1, 0, 0, 0);
 }
