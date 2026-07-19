@@ -187,7 +187,7 @@ pub const Camera = struct {
             scene_center + math.normalizeV3(light_direction) * @as(Vector3, @splat(light_distance));
         const light_target: Vector3 = scene_center;
 
-        const b = calculateViewBasis(light_position, light_target, .{ 0, 1, 0 });
+        const b = calculateViewBasis(light_position, light_target, .{ 0, 1, 0 }, .{ 0, 0, 1 });
 
         const view: Matrix4x4 = .new(.{
             b.right[X],                           b.up[X],                           b.back[X],                           0,
@@ -211,20 +211,32 @@ pub const Camera = struct {
     }
 
     pub fn getViewBasis(self: *const Camera) Basis {
-        return calculateViewBasis(self.position, self.target, self.up);
+        return calculateViewBasis(self.position, self.target, self.up, null);
     }
 
-    pub fn calculateViewBasis(position: Vector3, target: Vector3, up_in: Vector3) Basis {
+    /// `position` and `target` must differ.
+    /// `up_in` must be normalized.
+    /// `fallback_up` must be normalized when provided.
+    pub fn calculateViewBasis(position: Vector3, target: Vector3, up_in: Vector3, fallback_up: ?Vector3) Basis {
         const target_to_position: Vector3 = position - target;
+        std.debug.assert(math.dotV3(target_to_position, target_to_position) > 0);
         const back: Vector3 = math.normalizeV3(target_to_position);
 
         var up = up_in;
-        if (@abs(math.dotV3(back, up)) > 0.99) {
-            up = .{ 0, 0, 1 };
+        if (fallback_up) |fallback| {
+            if (@abs(math.dotV3(back, up)) > 0.99) {
+                up = fallback;
+            }
         }
 
-        const right: Vector3 = math.normalizeV3(math.crossV3(up, back));
-        const cam_up: Vector3 = math.crossV3(back, right);
-        return .{ .back = back, .right = right, .up = cam_up };
+        var right: Vector3 = math.crossV3(up, back);
+        std.debug.assert(math.dotV3(right, right) > 1e-12); // Guard against near-alignment between up and back.
+        right = math.normalizeV3(right);
+
+        return .{
+            .back = back,
+            .right = right,
+            .up = math.crossV3(back, right),
+        };
     }
 };
