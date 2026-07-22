@@ -28,6 +28,19 @@ const X = math.X;
 const Y = math.Y;
 const Z = math.Z;
 
+const DAY_SEGMENTS = [_]DaySegment{
+    .{ .time = 0.00, .light_direction = .{ 0.000, -1.0, 0.00 } },
+    .{ .time = 0.25, .light_direction = .{ 0.750, 0.20, 0.50 } },
+    .{ .time = 0.50, .light_direction = .{ 0.000, 1.00, 0.00 } },
+    .{ .time = 0.75, .light_direction = .{ -0.75, 0.20, -0.5 } },
+    .{ .time = 1.00, .light_direction = .{ 0.000, -1.0, 0.00 } },
+};
+
+const DaySegment = struct {
+    time: f32,
+    light_direction: Vector3,
+};
+
 pub const State = struct {
     dependencies: GameLib.Dependencies.Full3D,
 
@@ -46,7 +59,8 @@ pub const State = struct {
     entities: std.ArrayList(Entity),
     world_id: c.b3WorldId = undefined,
 
-    light_direction: Vector3 = .{ 0, 1, 0 },
+    time_of_day: f32 = 0.5,
+    light_direction: Vector3 = .{ 0, 1, 0 }, // Direction to light.
     light_color: Color3 = .{ 1, 0.95, 0.85 },
     ambient_strength: f32 = 0.3,
 
@@ -355,6 +369,18 @@ pub export fn tick(state_ptr: GameLib.GameStatePtr, time: u64, delta_time: u64) 
 
             entity.transform.position = .{ position.x, position.y, position.z };
             entity.transform.rotation = .{ rotation.v.x, rotation.v.y, rotation.v.z, rotation.s };
+        }
+    }
+
+    // Time of day.
+    for (DAY_SEGMENTS[0 .. DAY_SEGMENTS.len - 1], 0..) |current, i| {
+        const next: DaySegment = DAY_SEGMENTS[i + 1];
+        if (state.time_of_day < next.time) {
+            const t: f32 = (state.time_of_day - current.time) / (next.time - current.time);
+            state.light_direction = math.normalizeV3(
+                math.lerpV3(current.light_direction, next.light_direction, t),
+            );
+            break;
         }
     }
 

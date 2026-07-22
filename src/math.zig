@@ -167,6 +167,10 @@ pub fn lerp(min: f32, max: f32, t: f32) f32 {
     return (1.0 - t) * min + t * max;
 }
 
+pub fn lerpV3(min: Vector3, max: Vector3, t: f32) Vector3 {
+    return @as(Vector3, @splat(1.0 - t)) * min + @as(Vector3, @splat(t)) * max;
+}
+
 /// Converts Euler angles (radians) to a quaternion.
 /// Order: intrinsic rotations applied X, then Y, then Z (i.e. q = qZ * qY * qX).
 pub fn eulerToQuaternion(euler: Vector3) Quaternion {
