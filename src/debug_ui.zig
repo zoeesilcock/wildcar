@@ -28,7 +28,11 @@ pub fn draw(state: *State, context: *FrameContext, swapchain_texture: *sdl.SDL_G
         _ = imgui.c.ImGui_Begin("Game state", null, imgui.c.ImGuiWindowFlags_NoFocusOnAppearing);
         defer imgui.c.ImGui_End();
 
-        flint.internal.inspectStruct(state, &.{ "io", "allocator", "arena" }, false, inputCustomTypes);
+        flint.internal.inspectStruct(state, &.{ "io", "allocator", "arena" }, false, &.{
+            // .input(f32, "time_of_day", 0.01, 0.1),
+            // .drag(f32, "time_of_day", 0.01, 0, 1),
+            .slider(f32, "time_of_day", 0, 1),
+        }, inputCustomTypes);
     }
 
     imgui.renderGPU(context.command_buffer, swapchain_texture);

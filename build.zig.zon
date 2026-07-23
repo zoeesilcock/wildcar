@@ -5,8 +5,8 @@
     .fingerprint = 0xfba2aade6f03c29b,
     .dependencies = .{
         .flint = .{
-            .url = "git+https://github.com/zoeesilcock/flint.git#e7819f01aa37d4dfc40fcbf293b9ef61a61e2e89",
-            .hash = "flint-0.11.0-PsSSI0L4AQD-8rY2uIc7V0J8HnXwF9qjUVYUQ6oX-mHD",
+            .url = "git+https://github.com/zoeesilcock/flint.git#1c0fe3cdaa682e4b4086840322b43dfcc7525334",
+            .hash = "flint-0.11.0-PsSSI0oaAgCJ0IAM9GdUyuldPmh8fS5RiRxwKGJaoPY-",
         },
         .box3d = .{
             .url = "git+https://github.com/erincatto/box3d.git#d421e45c828f6f853a145f726f0b9425d31146eb",
