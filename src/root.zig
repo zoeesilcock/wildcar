@@ -29,16 +29,47 @@ const Y = math.Y;
 const Z = math.Z;
 
 const DAY_SEGMENTS = [_]DaySegment{
-    .{ .time = 0.00, .light_direction = .{ 0.000, -1.0, 0.00 } },
-    .{ .time = 0.25, .light_direction = .{ 0.750, 0.20, 0.50 } },
-    .{ .time = 0.50, .light_direction = .{ 0.000, 1.00, 0.00 } },
-    .{ .time = 0.75, .light_direction = .{ -0.75, 0.20, -0.5 } },
-    .{ .time = 1.00, .light_direction = .{ 0.000, -1.0, 0.00 } },
+    .{
+        .time = 0,
+        .light_direction = .{ 0, -1, 0 },
+        .light_color = .{ 1, 0.15, 0.25 },
+    },
+    .{
+        .time = 0.2,
+        .light_direction = .{ 0.83, -0.06, 0.55 },
+        .light_color = .{ 1, 0.15, 0.25 },
+    },
+    .{
+        .time = 0.25,
+        .light_direction = .{ 0.75, 0.2, 0.5 },
+        .light_color = .{ 1, 0.65, 0.75 },
+    },
+    .{
+        .time = 0.5,
+        .light_direction = .{ 0, 1, 0 },
+        .light_color = .{ 1, 1, 0.75 },
+    },
+    .{
+        .time = 0.75,
+        .light_direction = .{ -0.75, 0.2, -0.5 },
+        .light_color = .{ 1, 0.75, 0.45 },
+    },
+    .{
+        .time = 0.8,
+        .light_direction = .{ -0.83, -0.06, -0.55 },
+        .light_color = .{ 1, 0.25, 0.15 },
+    },
+    .{
+        .time = 1,
+        .light_direction = .{ 0, -1.0, 0 },
+        .light_color = .{ 1, 0.25, 0.15 },
+    },
 };
 
 const DaySegment = struct {
     time: f32,
     light_direction: Vector3,
+    light_color: Color3,
 };
 
 pub const State = struct {
@@ -380,6 +411,7 @@ pub export fn tick(state_ptr: GameLib.GameStatePtr, time: u64, delta_time: u64) 
             state.light_direction = math.normalizeV3(
                 math.lerpV3(current.light_direction, next.light_direction, t),
             );
+            state.light_color = math.lerpV3(current.light_color, next.light_color, t);
             break;
         }
     }
