@@ -29,18 +29,19 @@ struct main0_in
 fragment main0_out main0(main0_in in [[stage_in]], constant type_SkyUniforms& SkyUniforms [[buffer(0)]])
 {
     main0_out out = {};
-    float3 _30 = fast::normalize(in.in_var_TEXCOORD0);
-    float _35 = _30.y;
-    float3 _55;
-    if (_35 < 0.0)
+    float3 _33 = fast::normalize(in.in_var_TEXCOORD0);
+    float _37 = dot(_33, fast::normalize(SkyUniforms.light_direction));
+    float _38 = _33.y;
+    float3 _63;
+    if (_38 < 0.0)
     {
-        _55 = float3(SkyUniforms.ground_color);
+        _63 = float3(SkyUniforms.ground_color);
     }
     else
     {
-        _55 = mix(mix(float3(SkyUniforms.horizon_color), float3(SkyUniforms.zenith_color), float3(fast::clamp(_35 * 0.89999997615814208984375, 0.0, 1.0))), float3(SkyUniforms.light_color), float3(smoothstep(0.994000017642974853515625, 0.995999991893768310546875, dot(_30, fast::normalize(SkyUniforms.light_direction)))));
+        _63 = mix(mix(mix(float3(SkyUniforms.horizon_color), float3(SkyUniforms.zenith_color), float3(fast::clamp(_38 * 0.89999997615814208984375, 0.0, 1.0))), float3(SkyUniforms.light_color) * 0.89999997615814208984375, float3(smoothstep(0.85000002384185791015625, 1.10000002384185791015625, _37) * 0.5)), float3(SkyUniforms.light_color), float3(smoothstep(0.99500000476837158203125, 0.9969999790191650390625, _37)));
     }
-    out.out_var_SV_Target0 = float4(_55, 1.0);
+    out.out_var_SV_Target0 = float4(_63, 1.0);
     return out;
 }
 

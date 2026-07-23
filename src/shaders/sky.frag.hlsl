@@ -29,7 +29,10 @@ float4 main(Input input) : SV_Target0
         float t = saturate(dir.y * 0.9);
         color = lerp(horizon_color, zenith_color, t);
 
-        float sun_disc = smoothstep(0.994, 0.996, sun_amount);
+        float sun_glow = smoothstep(0.85, 1.1, sun_amount);
+        color = lerp(color, light_color * 0.9, sun_glow * 0.5);
+
+        float sun_disc = smoothstep(0.995, 0.997, sun_amount);
         color = lerp(color, light_color, sun_disc);
     }
     return float4(color, 1.0);
