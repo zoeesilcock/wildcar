@@ -33,36 +33,50 @@ const DAY_SEGMENTS = [_]DaySegment{
         .time = 0,
         .light_direction = .{ 0, -1, 0 },
         .light_color = .{ 1, 0.15, 0.25 },
+        .sky_color_horizon = .{ 0, 0, 0.2 },
+        .sky_color_zenith = .{ 0, 0, 0 },
     },
     .{
         .time = 0.2,
         .light_direction = .{ 0.83, -0.06, 0.55 },
         .light_color = .{ 1, 0.15, 0.25 },
+        .sky_color_horizon = .{ 0.4, 0.1, 0.3 },
+        .sky_color_zenith = .{ 0, 0, 0.2 },
     },
     .{
         .time = 0.25,
         .light_direction = .{ 0.75, 0.2, 0.5 },
-        .light_color = .{ 1, 0.65, 0.75 },
+        .light_color = .{ 1, 0.85, 0.75 },
+        .sky_color_horizon = .{ 0.6, 0.4, 0.5 },
+        .sky_color_zenith = .{ 0.1, 0.1, 0.7 },
     },
     .{
         .time = 0.5,
         .light_direction = .{ 0, 1, 0 },
-        .light_color = .{ 1, 1, 0.75 },
+        .light_color = .{ 1, 1, 0.6 },
+        .sky_color_horizon = .{ 0.8, 0.8, 1 },
+        .sky_color_zenith = .{ 0.2, 0.2, 0.75 },
     },
     .{
         .time = 0.75,
         .light_direction = .{ -0.75, 0.2, -0.5 },
         .light_color = .{ 1, 0.75, 0.45 },
+        .sky_color_horizon = .{ 0.6, 0.4, 0.3 },
+        .sky_color_zenith = .{ 0.1, 0.1, 0.7 },
     },
     .{
         .time = 0.8,
         .light_direction = .{ -0.83, -0.06, -0.55 },
         .light_color = .{ 1, 0.25, 0.15 },
+        .sky_color_horizon = .{ 0.4, 0.1, 0.1 },
+        .sky_color_zenith = .{ 0, 0, 0.2 },
     },
     .{
         .time = 1,
         .light_direction = .{ 0, -1.0, 0 },
         .light_color = .{ 1, 0.25, 0.15 },
+        .sky_color_horizon = .{ 0, 0, 0.2 },
+        .sky_color_zenith = .{ 0, 0, 0 },
     },
 };
 
@@ -70,6 +84,8 @@ const DaySegment = struct {
     time: f32,
     light_direction: Vector3,
     light_color: Color3,
+    sky_color_horizon: Color3 = .{ 0.8, 0.8, 1 },
+    sky_color_zenith: Color3 = .{ 0.2, 0.2, 0.75 },
 };
 
 pub const State = struct {
@@ -412,6 +428,8 @@ pub export fn tick(state_ptr: GameLib.GameStatePtr, time: u64, delta_time: u64) 
                 math.lerpV3(current.light_direction, next.light_direction, t),
             );
             state.light_color = math.lerpV3(current.light_color, next.light_color, t);
+            state.sky_color_horizon = math.lerpV3(current.sky_color_horizon, next.sky_color_horizon, t);
+            state.sky_color_zenith = math.lerpV3(current.sky_color_zenith, next.sky_color_zenith, t);
             break;
         }
     }
