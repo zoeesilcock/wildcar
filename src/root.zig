@@ -31,61 +31,77 @@ const Z = math.Z;
 const DAY_SEGMENTS = [_]DaySegment{
     .{
         .time = 0,
+        .ambient_strength = 0.3,
         .light_direction = .{ 0, -1, 0 },
         .light_color = .{ 1, 0.15, 0.25 },
         .sky_color_horizon = .{ 0, 0, 0.2 },
         .sky_color_zenith = .{ 0, 0, 0 },
+        .sky_color_ground = .{ 0, 0, 0 },
     },
     .{
         .time = 0.2,
+        .ambient_strength = 0.3,
         .light_direction = .{ 0.83, -0.06, 0.55 },
         .light_color = .{ 1, 0.15, 0.25 },
         .sky_color_horizon = .{ 0.4, 0.1, 0.3 },
         .sky_color_zenith = .{ 0, 0, 0.2 },
+        .sky_color_ground = .{ 0, 0, 0.1 },
     },
     .{
         .time = 0.25,
+        .ambient_strength = 0.4,
         .light_direction = .{ 0.75, 0.2, 0.5 },
         .light_color = .{ 1, 0.85, 0.75 },
         .sky_color_horizon = .{ 0.6, 0.4, 0.5 },
         .sky_color_zenith = .{ 0.1, 0.1, 0.7 },
+        .sky_color_ground = .{ 0.1, 0.1, 0.2 },
     },
     .{
         .time = 0.5,
+        .ambient_strength = 0.6,
         .light_direction = .{ 0, 1, 0 },
         .light_color = .{ 1, 1, 0.6 },
         .sky_color_horizon = .{ 0.8, 0.8, 1 },
         .sky_color_zenith = .{ 0.2, 0.2, 0.75 },
+        .sky_color_ground = .{ 0.3, 0.3, 0.4 },
     },
     .{
         .time = 0.75,
+        .ambient_strength = 0.4,
         .light_direction = .{ -0.75, 0.2, -0.5 },
         .light_color = .{ 1, 0.75, 0.45 },
         .sky_color_horizon = .{ 0.6, 0.4, 0.3 },
         .sky_color_zenith = .{ 0.1, 0.1, 0.7 },
+        .sky_color_ground = .{ 0.1, 0.1, 0.2 },
     },
     .{
         .time = 0.8,
+        .ambient_strength = 0.3,
         .light_direction = .{ -0.83, -0.06, -0.55 },
         .light_color = .{ 1, 0.25, 0.15 },
         .sky_color_horizon = .{ 0.4, 0.1, 0.1 },
         .sky_color_zenith = .{ 0, 0, 0.2 },
+        .sky_color_ground = .{ 0, 0, 0.1 },
     },
     .{
         .time = 1,
+        .ambient_strength = 0.3,
         .light_direction = .{ 0, -1.0, 0 },
         .light_color = .{ 1, 0.25, 0.15 },
         .sky_color_horizon = .{ 0, 0, 0.2 },
         .sky_color_zenith = .{ 0, 0, 0 },
+        .sky_color_ground = .{ 0, 0, 0 },
     },
 };
 
 const DaySegment = struct {
     time: f32,
+    ambient_strength: f32,
     light_direction: Vector3,
     light_color: Color3,
-    sky_color_horizon: Color3 = .{ 0.8, 0.8, 1 },
-    sky_color_zenith: Color3 = .{ 0.2, 0.2, 0.75 },
+    sky_color_horizon: Color3,
+    sky_color_zenith: Color3,
+    sky_color_ground: Color3,
 };
 
 pub const State = struct {
@@ -424,12 +440,14 @@ pub export fn tick(state_ptr: GameLib.GameStatePtr, time: u64, delta_time: u64) 
         const next: DaySegment = DAY_SEGMENTS[i + 1];
         if (state.time_of_day < next.time) {
             const t: f32 = (state.time_of_day - current.time) / (next.time - current.time);
+            state.ambient_strength = math.lerp(current.ambient_strength, next.ambient_strength, t);
             state.light_direction = math.normalizeV3(
                 math.lerpV3(current.light_direction, next.light_direction, t),
             );
             state.light_color = math.lerpV3(current.light_color, next.light_color, t);
             state.sky_color_horizon = math.lerpV3(current.sky_color_horizon, next.sky_color_horizon, t);
             state.sky_color_zenith = math.lerpV3(current.sky_color_zenith, next.sky_color_zenith, t);
+            state.sky_color_ground = math.lerpV3(current.sky_color_ground, next.sky_color_ground, t);
             break;
         }
     }
