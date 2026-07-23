@@ -43,14 +43,14 @@ pub const Camera = struct {
 
     pub fn init(aspect_ratio: f32) Camera {
         var self: Camera = .{
-            .position = .{ -10, 6.5, 0 },
-            .target = .{ -20, 3, 0 },
-            .radius = 10,
-            .azimuth_angle = 0,
-            .polar_angle = 0.36,
+            .position = .{ -1.17, 5, 11.45 },
+            .target = .{ -20, 3, 5 },
+            .radius = 20,
+            .azimuth_angle = 0.33,
+            .polar_angle = 0.1,
             .mode = .Free,
             .up = .{ 0, 1, 0 },
-            .fov = 75 * sdl.SDL_PI_F / 180,
+            .fov = 50 * sdl.SDL_PI_F / 180,
             .aspect_ratio = aspect_ratio,
             .near_plane = 0.1,
             .far_plane = 10_000,
