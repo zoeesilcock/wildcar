@@ -3,6 +3,7 @@ const c = @import("c");
 const flint = @import("flint");
 const math = @import("math");
 const game = @import("root.zig");
+const car = @import("car.zig");
 
 // Types.
 const State = game.State;
@@ -106,6 +107,8 @@ pub fn load(state: *State) void {
         shape_def.baseMaterial.friction = 0.3;
         _ = c.b3CreateHullShape(entity.body_id, &shape_def, &box.base);
     }
+
+    car.setWheels(state.entities.items[0].children[0..4]);
 }
 
 pub fn unload(state: *State) void {

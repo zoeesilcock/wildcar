@@ -24,26 +24,30 @@ const X = math.X;
 const Y = math.Y;
 const Z = math.Z;
 
-const WHEEL_OFFSETS = [_]Vector3{
-    .{ 2, 0, 2 },
-    .{ 2, 0, -2 },
-    .{ -2, 0, -2 },
-    .{ -2, 0, 2 },
-};
+var wheel_transforms: [4]Transform = @splat(.{});
+
+pub fn setWheels(wheels: *[4]Entity) void {
+    for (wheels, 0..) |wheel, i| {
+        wheel_transforms[i] = wheel.transform;
+    }
+}
 
 pub fn updatePhysics(state: *State) void {
     const car: Entity = state.entities.items[0];
     const body_id: c.b3BodyId = car.body_id;
-    const wheels: []Entity = car.children[0..4];
+    const wheel_entities: []Entity = car.children[0..4];
 
-    for (wheels) |wheel| {
-        const wheel_transform = wheel.transform.relativeTo(car.transform);
+    for (wheel_transforms, 0..) |wheel, i| {
+        const wheel_transform = wheel.relativeTo(car.transform);
         const wheel_origin = wheel_transform.position;
         const wheel_radius: f32 = 0.66;
-        const ray_length: f32 = wheel_radius;
-        const ray_origin = wheel_origin;
         const local_down: Vector3 = .{ 0, -1, 0 };
         const world_down: Vector3 = math.rotateVectorBy(local_down, car.transform.rotation);
+
+        const epsilon_length: f32 = 0.01;
+        const epsilon: Vector3 = world_down * @as(Vector3, @splat(epsilon_length)); // Avoid starting in the ground.
+        const ray_length: f32 = wheel_radius + epsilon_length;
+        const ray_origin = wheel_origin - epsilon;
         const ray_translation: Vector3 = world_down * @as(Vector3, @splat(ray_length));
         var distance = ray_length;
 
@@ -58,6 +62,8 @@ pub fn updatePhysics(state: *State) void {
         if (cast.hit) {
             distance = cast.fraction * ray_length;
         }
+
+        wheel_entities[i].transform.position[Y] = wheel.position[Y] + (ray_length - distance);
 
         if (INTERNAL) {
             // Wheel origin.
