@@ -6,8 +6,10 @@ const sdl = flint.sdl.c;
 const imgui = flint.imgui;
 const math = @import("math");
 const debug_ui = if (INTERNAL) @import("debug_ui.zig") else undefined;
+const debug_shapes = if (INTERNAL) @import("debug_shapes.zig") else undefined;
 const renderer = @import("render/renderer.zig");
 const scene = @import("scene.zig");
+const car = @import("car.zig");
 
 const INTERNAL: bool = @import("build_options").internal;
 
@@ -18,12 +20,12 @@ pub const std_options: std.Options = .{
 // Types.
 const GameLib = flint.GameLib;
 const FPSWindow = flint.internal.FPSWindow;
+const Vector2 = math.Vector2;
 const Vector3 = math.Vector3;
 const Transform = math.Transform;
 const Quaternion = math.Quaternion;
 const Color = math.Color;
 const Color3 = math.Color3;
-const Vector2 = math.Vector2;
 const X = math.X;
 const Y = math.Y;
 const Z = math.Z;
@@ -134,10 +136,12 @@ pub const State = struct {
     input: Input = .{},
 
     // Internal.
-    internal: if (INTERNAL) extern struct {
+    internal: if (INTERNAL) struct {
         output: *flint.internal.DebugOutputWindow = undefined,
         inspect_game_state: bool = false,
         show_collision_bodies: bool = false,
+        debug_box_count: u32 = 0,
+        debug_boxes: [128]debug_shapes.Box = @splat(undefined),
     } else extern struct {} = undefined,
 
     pub fn currentTime(self: *State) f32 {
@@ -239,6 +243,7 @@ pub export fn initFull3D(dependencies: GameLib.Dependencies.Full3D) GameLib.Game
     };
 
     if (INTERNAL) {
+        state.internal = .{};
         imgui.setup(state.dependencies.internal.imgui_context, .GPU);
         state.internal.output = dependencies.internal.output;
     }
@@ -423,6 +428,8 @@ pub export fn tick(state_ptr: GameLib.GameStatePtr, time: u64, delta_time: u64) 
     const time_step: f32 = 1.0 / 60.0;
     const sub_step_count: u32 = 4;
 
+    car.updatePhysics(state);
+
     c.b3World_Step(state.world_id, time_step, sub_step_count);
 
     for (state.entities.items) |*entity| {
@@ -551,24 +558,10 @@ pub export fn draw(state_ptr: GameLib.GameStatePtr) void {
             }
 
             if (INTERNAL) {
-                if (state.internal.show_collision_bodies) {
-                    const body_transform: c.b3Transform = c.b3Body_GetTransform(entity.body_id);
-
-                    renderer.drawLineCube(&state.renderer, &frame_context, .{
-                        .position = .{ body_transform.p.x, body_transform.p.y, body_transform.p.z },
-                        .scale = entity.transform.scale,
-                        .rotation = .{
-                            body_transform.q.v.x,
-                            body_transform.q.v.y,
-                            body_transform.q.v.z,
-                            body_transform.q.s,
-                        },
-                    }, .{
-                        .color = if (entity.is_dynamic) .{ 0, 1, 0, 1 } else .{ 1, 1, 0, 1 },
-                    });
-                }
+                debug_shapes.drawCollisionShapes(state, &frame_context, entity);
             }
         }
+        if (INTERNAL) debug_shapes.draw(state, &frame_context);
 
         const swapchain_texture = renderer.compositeToSwapchain(
             &state.renderer,

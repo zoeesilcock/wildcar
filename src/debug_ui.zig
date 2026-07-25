@@ -6,8 +6,8 @@ const renderer = @import("render/renderer.zig");
 const game = @import("root.zig");
 
 // Types.
-const FrameContext = renderer.FrameContext;
 const State = game.State;
+const FrameContext = renderer.FrameContext;
 const Vector2 = math.Vector2;
 const Vector3 = math.Vector3;
 
