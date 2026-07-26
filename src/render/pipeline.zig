@@ -5,6 +5,8 @@ const renderer = @import("renderer.zig");
 const buffer = @import("buffer.zig");
 const mesh = @import("mesh.zig");
 
+const INTERNAL: bool = @import("build_options").internal;
+
 // Types.
 const RendererContext = renderer.RendererContext;
 const WorldVertex = mesh.WorldVertex;
@@ -57,6 +59,18 @@ pub fn init(context: *RendererContext, allocator: std.mem.Allocator, io: std.Io)
         @panic("Failed to load shadow fragment shader");
     }
     defer sdl.SDL_ReleaseGPUShader(context.gpu_device, shadow_fragment_shader);
+
+    const debug_shapes_vertex_shader = loadShader(context, "debug_shapes.vert", 0, 1, 0, 0, allocator, io);
+    if (debug_shapes_vertex_shader == null) {
+        @panic("Failed to load debug shapes vertex shader");
+    }
+    defer sdl.SDL_ReleaseGPUShader(context.gpu_device, debug_shapes_vertex_shader);
+
+    const debug_shapes_fragment_shader = loadShader(context, "debug_shapes.frag", 1, 2, 0, 0, allocator, io);
+    if (debug_shapes_fragment_shader == null) {
+        @panic("Failed to load debug shapes fragment shader");
+    }
+    defer sdl.SDL_ReleaseGPUShader(context.gpu_device, debug_shapes_fragment_shader);
 
     // Fill pipeline.
     const color_target_descriptions = [_]sdl.SDL_GPUColorTargetDescription{.{
@@ -121,10 +135,27 @@ pub fn init(context: *RendererContext, allocator: std.mem.Allocator, io: std.Io)
 
     // Line pipeline.
     pipeline_create_info.rasterizer_state.fill_mode = sdl.SDL_GPU_FILLMODE_LINE;
+    pipeline_create_info.vertex_shader = debug_shapes_vertex_shader;
+    pipeline_create_info.fragment_shader = debug_shapes_fragment_shader;
     if (sdl.SDL_CreateGPUGraphicsPipeline(context.gpu_device, &pipeline_create_info)) |line_pipeline| {
         context.line_pipeline = line_pipeline;
     } else {
         @panic("Failed to create line pipeline.");
+    }
+
+    if (INTERNAL) {
+        // Debug shape pipeline.
+        pipeline_create_info.rasterizer_state.fill_mode = sdl.SDL_GPU_FILLMODE_FILL;
+        pipeline_create_info.depth_stencil_state = .{
+            .compare_op = sdl.SDL_GPU_COMPAREOP_ALWAYS,
+        };
+        pipeline_create_info.vertex_shader = debug_shapes_vertex_shader;
+        pipeline_create_info.fragment_shader = debug_shapes_fragment_shader;
+        if (sdl.SDL_CreateGPUGraphicsPipeline(context.gpu_device, &pipeline_create_info)) |line_pipeline| {
+            context.debug_shape_pipeline = line_pipeline;
+        } else {
+            @panic("Failed to create debug shape pipeline.");
+        }
     }
 
     // Screen pipeline.

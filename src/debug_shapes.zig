@@ -11,8 +11,10 @@ const game = @import("root.zig");
 const State = game.State;
 const Entity = game.Entity;
 const FrameContext = renderer.FrameContext;
-const Color = math.Color;
 const Transform = math.Transform;
+const Vector3 = math.Vector3;
+const Quaternion = math.Quaternion;
+const Color = math.Color;
 
 pub const Box = struct {
     transform: Transform,
@@ -25,11 +27,30 @@ pub fn addBox(state: *State, box: Box) void {
     state.internal.debug_box_count += 1;
 }
 
+pub fn addRaycast(
+    state: *State,
+    origin: Vector3,
+    translation: Vector3,
+    rotation: Quaternion,
+    hit_distance: f32,
+) void {
+    var t: Transform = .{ .position = origin, .rotation = rotation, .scale = @splat(0.05) };
+    addBox(state, .{ .transform = t, .color = .{ 1, 0, 1, 1 } });
+
+    const direction = math.normalizeV3(translation);
+    t = .{
+        .position = origin + direction * @as(Vector3, @splat(hit_distance / 2)),
+        .rotation = rotation,
+        .scale = .{ 0.01, hit_distance / 2, 0.01 },
+    };
+    addBox(state, .{ .transform = t, .color = .{ 1, 1, 0, 1 } });
+}
+
 pub fn draw(state: *State, context: *FrameContext) void {
     var index: u32 = 0;
     while (index < state.internal.debug_box_count) : (index += 1) {
         const box: Box = state.internal.debug_boxes[index];
-        renderer.drawLineCube(&state.renderer, context, box.transform, .{ .color = box.color });
+        renderer.drawDebugCube(&state.renderer, context, box.transform, .{ .color = box.color });
     }
 
     state.internal.debug_box_count = 0;

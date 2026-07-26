@@ -19,6 +19,8 @@ const SHADERS: []const []const u8 = &.{
     "screen.frag",
     "shadow.vert",
     "shadow.frag",
+    "debug_shapes.vert",
+    "debug_shapes.frag",
 };
 
 var log_allocations: bool = false;

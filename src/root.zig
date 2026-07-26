@@ -140,6 +140,7 @@ pub const State = struct {
         output: *flint.internal.DebugOutputWindow = undefined,
         inspect_game_state: bool = false,
         show_collision_bodies: bool = false,
+        show_suspension: bool = true,
         debug_box_count: u32 = 0,
         debug_boxes: [128]debug_shapes.Box = @splat(undefined),
     } else extern struct {} = undefined,
@@ -344,14 +345,19 @@ pub export fn processInput(state_ptr: GameLib.GameStatePtr) bool {
                 sdl.SDLK_F3 => {
                     state.camera.cycleMode();
                 },
+                sdl.SDLK_F4 => {
+                    if (INTERNAL) {
+                        state.internal.show_collision_bodies = !state.internal.show_collision_bodies;
+                    }
+                },
+                sdl.SDLK_F5 => {
+                    if (INTERNAL) {
+                        state.internal.show_suspension = !state.internal.show_suspension;
+                    }
+                },
                 sdl.SDLK_G => {
                     if (INTERNAL) {
                         state.internal.inspect_game_state = !state.internal.inspect_game_state;
-                    }
-                },
-                sdl.SDLK_C => {
-                    if (INTERNAL) {
-                        state.internal.show_collision_bodies = !state.internal.show_collision_bodies;
                     }
                 },
                 else => {},

@@ -21,8 +21,9 @@ Learning about 3D rendering and car physics.
         * Left mouse held changes facing direction.
         * Middle mouse held moves forward/backward.
         * WASD: Moves left/right and forward/backward (hold shift for faster movement).
+* F4: Toggle showing collision bodies.
+* F5: Toggle showing suspension.
 * G: Toggle game state inspector.
-* C: Toggle showing collision bodies.
 
 
 ## Development

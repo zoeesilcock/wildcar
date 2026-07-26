@@ -19,6 +19,7 @@ const INTERNAL: bool = @import("build_options").internal;
 const State = game.State;
 const Entity = game.Entity;
 const Transform = math.Transform;
+const Quaternion = math.Quaternion;
 const Vector3 = math.Vector3;
 const X = math.X;
 const Y = math.Y;
@@ -41,14 +42,18 @@ pub fn updatePhysics(state: *State) void {
         const wheel_transform = wheel.relativeTo(car.transform);
         const wheel_origin = wheel_transform.position;
         const wheel_radius: f32 = 0.66;
+
+        const ray_rotation: Quaternion = car.transform.rotation;
         const local_down: Vector3 = .{ 0, -1, 0 };
-        const world_down: Vector3 = math.rotateVectorBy(local_down, car.transform.rotation);
+        const world_down: Vector3 = math.rotateVectorBy(local_down, ray_rotation);
 
         const epsilon_length: f32 = 0.01;
         const epsilon: Vector3 = world_down * @as(Vector3, @splat(epsilon_length)); // Avoid starting in the ground.
+
         const ray_length: f32 = wheel_radius + epsilon_length;
         const ray_origin = wheel_origin - epsilon;
         const ray_translation: Vector3 = world_down * @as(Vector3, @splat(ray_length));
+
         var distance = ray_length;
 
         const query_filter = c.b3DefaultQueryFilter();
@@ -65,18 +70,8 @@ pub fn updatePhysics(state: *State) void {
 
         wheel_entities[i].transform.position[Y] = wheel.position[Y] + (ray_length - distance);
 
-        if (INTERNAL) {
-            // Wheel origin.
-            var t: Transform = .{ .position = wheel_origin, .scale = .{ 0.1, 0.1, 0.5 } };
-            debug_shapes.addBox(state, .{ .transform = t, .color = .{ 1, 0, 1, 1 } });
-
-            // Wheel raycast.
-            t = .{
-                .position = ray_origin + world_down * @as(Vector3, @splat(distance / 2)),
-                .rotation = car.transform.rotation,
-                .scale = .{ 0.1, distance / 2, 0.5 },
-            };
-            debug_shapes.addBox(state, .{ .transform = t, .color = .{ 1, 1, 0, 1 } });
+        if (INTERNAL and state.internal.show_suspension) {
+            debug_shapes.addRaycast(state, ray_origin, ray_translation, ray_rotation, distance);
         }
     }
 

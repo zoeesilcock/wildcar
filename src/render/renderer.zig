@@ -36,6 +36,7 @@ pub const RendererContext = struct {
     // Pipeline.
     fill_pipeline: *sdl.SDL_GPUGraphicsPipeline = undefined,
     line_pipeline: *sdl.SDL_GPUGraphicsPipeline = undefined,
+    debug_shape_pipeline: *sdl.SDL_GPUGraphicsPipeline = undefined,
     screen_pipeline: *sdl.SDL_GPUGraphicsPipeline = undefined,
     sky_pipeline: *sdl.SDL_GPUGraphicsPipeline = undefined,
     shadow_pipeline: *sdl.SDL_GPUGraphicsPipeline = undefined,
@@ -245,6 +246,23 @@ fn bindLinePipeline(context: *RendererContext, frame: *FrameContext) void {
     }
 }
 
+fn bindDebugShapePipeline(context: *RendererContext, frame: *FrameContext) void {
+    if (frame.bound_pipeline != context.debug_shape_pipeline) {
+        sdl.SDL_BindGPUGraphicsPipeline(frame.render_pass, context.debug_shape_pipeline);
+        frame.bound_pipeline = context.debug_shape_pipeline;
+    }
+
+    if (frame.bound_mesh != &context.cube_mesh) {
+        sdl.SDL_BindGPUVertexBuffers(frame.render_pass, 0, &.{ .buffer = context.cube_mesh.vertex_buffer, .offset = 0 }, 1);
+        sdl.SDL_BindGPUIndexBuffer(
+            frame.render_pass,
+            &.{ .buffer = context.cube_mesh.index_buffer, .offset = 0 },
+            sdl.SDL_GPU_INDEXELEMENTSIZE_16BIT,
+        );
+        frame.bound_mesh = &context.cube_mesh;
+    }
+}
+
 fn bindShadowPipeline(context: *RendererContext, frame: *FrameContext) void {
     if (frame.bound_pipeline != context.shadow_pipeline) {
         sdl.SDL_BindGPUGraphicsPipeline(frame.render_pass, context.shadow_pipeline);
@@ -340,6 +358,16 @@ pub fn drawLineCube(
     fragment_uniforms: LambertFragmentUniforms,
 ) void {
     bindLinePipeline(context, frame);
+    drawCubeInternal(context, frame, transform, fragment_uniforms);
+}
+
+pub fn drawDebugCube(
+    context: *RendererContext,
+    frame: *FrameContext,
+    transform: Transform,
+    fragment_uniforms: LambertFragmentUniforms,
+) void {
+    bindDebugShapePipeline(context, frame);
     drawCubeInternal(context, frame, transform, fragment_uniforms);
 }
 
