@@ -1,7 +1,7 @@
 //! Car measurements:
 //!
 //! Chassi size: 4x2
-//! Wheel radius: 0.33
+//! Wheel radius: 0.66
 //! Wheel positions:
 //! * X: 2/-2
 //! * Z: 2/-2
@@ -56,6 +56,7 @@ pub fn updatePhysics(state: *State) void {
 
         var distance = ray_length;
 
+        // Calculate distance to ground.
         const query_filter = c.b3DefaultQueryFilter();
         const cast = c.b3World_CastRayClosest(
             state.world_id,
@@ -68,12 +69,22 @@ pub fn updatePhysics(state: *State) void {
             distance = cast.fraction * ray_length;
         }
 
-        wheel_entities[i].transform.position[Y] = wheel.position[Y] + (ray_length - distance);
-
         if (INTERNAL and state.internal.show_suspension) {
             debug_shapes.addRaycast(state, ray_origin, ray_translation, ray_rotation, distance);
         }
-    }
 
-    _ = body_id;
+        // Update position of wheel mesh based on ground distance.
+        wheel_entities[i].transform.position[Y] = wheel.position[Y] + (ray_length - distance);
+
+        // Apply suspension force to car.
+        if (cast.hit) {
+            const rest_length: f32 = ray_length;
+            const compression: f32 = rest_length - distance;
+            const spring_stiffness: f32 = 1000;
+            const spring_force: f32 = spring_stiffness * @max(compression, 0);
+            const force: Vector3 = -world_down * @as(Vector3, @splat(spring_force));
+
+            c.b3Body_ApplyForce(body_id, b3.vecToB3(force), b3.vecToB3(wheel_origin), false);
+        }
+    }
 }
