@@ -12,6 +12,7 @@ const scene = @import("scene.zig");
 const car = @import("car.zig");
 
 const INTERNAL: bool = @import("build_options").internal;
+pub const GRAVITY = 9.81;
 
 pub const std_options: std.Options = .{
     .log_level = if (INTERNAL) .info else .err,

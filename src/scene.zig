@@ -108,7 +108,7 @@ pub fn load(state: *State) void {
         _ = c.b3CreateHullShape(entity.body_id, &shape_def, &box.base);
     }
 
-    car.setWheels(state.entities.items[0].children[0..4]);
+    car.init(state.entities.items[0]);
 }
 
 pub fn unload(state: *State) void {
@@ -118,7 +118,7 @@ pub fn unload(state: *State) void {
 
 fn initBox3D(state: *State) void {
     var world_definition: c.b3WorldDef = c.b3DefaultWorldDef();
-    world_definition.gravity = .{ .x = 0, .y = -10, .z = 0 };
+    world_definition.gravity = .{ .x = 0, .y = -game.GRAVITY, .z = 0 };
     state.world_id = c.b3CreateWorld(&world_definition);
 
     var ground_body_def: c.b3BodyDef = c.b3DefaultBodyDef();

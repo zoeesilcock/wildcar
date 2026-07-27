@@ -25,9 +25,28 @@ const X = math.X;
 const Y = math.Y;
 const Z = math.Z;
 
+const CAR_MASS = 1000;
+const MASS_PER_WHEEL = CAR_MASS / 4;
+const SUSPENSION_PARKED_COMPRESSION = 0.1;
+const SUSPENSION_STIFFNESS = (MASS_PER_WHEEL * game.GRAVITY) / SUSPENSION_PARKED_COMPRESSION;
+const SUSPENSION_DAMPING_RATIO = 0.7;
+const SUSPENSION_CRITICAL_DAMPING = 2 * @sqrt(SUSPENSION_STIFFNESS * MASS_PER_WHEEL);
+const SUSPENSION_DAMPING_COEFFICIENT = SUSPENSION_DAMPING_RATIO * SUSPENSION_CRITICAL_DAMPING;
+
 var wheel_transforms: [4]Transform = @splat(.{});
 
-pub fn setWheels(wheels: *[4]Entity) void {
+pub fn init(car: Entity) void {
+    setWheels(car.children[0..4]);
+
+    // Set mass.
+    var mass_data = c.b3Body_GetMassData(car.body_id);
+    const mass_scale: f32 = CAR_MASS / mass_data.mass;
+    mass_data.mass = CAR_MASS;
+    mass_data.inertia = c.b3MulSM(mass_scale, mass_data.inertia);
+    c.b3Body_SetMassData(car.body_id, mass_data);
+}
+
+fn setWheels(wheels: *[4]Entity) void {
     for (wheels, 0..) |wheel, i| {
         wheel_transforms[i] = wheel.transform;
     }
@@ -92,12 +111,10 @@ pub fn updatePhysics(state: *State) void {
             const suspension_velocity: f32 = math.dotV3(point_velocity, world_down);
 
             // Calculate spring force.
-            const spring_stiffness: f32 = 1000;
-            const spring_force: f32 = spring_stiffness * @max(compression, 0);
+            const spring_force: f32 = SUSPENSION_STIFFNESS * @max(compression, 0);
 
             // Apply damping on the spring force.
-            const damping_coefficient: f32 = 100;
-            const damping_force: f32 = damping_coefficient * suspension_velocity;
+            const damping_force: f32 = SUSPENSION_DAMPING_COEFFICIENT * suspension_velocity;
             const support_force: f32 = @max(spring_force + damping_force, 0);
 
             // Calculate and apply the final force for the wheel.
