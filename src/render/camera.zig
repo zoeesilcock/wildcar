@@ -48,7 +48,7 @@ pub const Camera = struct {
             .radius = 20,
             .azimuth_angle = 0.33,
             .polar_angle = 0.1,
-            .mode = .Free,
+            .mode = .Orbit,
             .up = .{ 0, 1, 0 },
             .fov = 50 * sdl.SDL_PI_F / 180,
             .aspect_ratio = aspect_ratio,
@@ -61,6 +61,11 @@ pub const Camera = struct {
 
     pub fn setAspectRatio(self: *Camera, aspect_ratio: f32) void {
         self.aspect_ratio = aspect_ratio;
+        self.deriveSpatialState();
+    }
+
+    pub fn setTarget(self: *Camera, target: Vector3) void {
+        self.target = target;
         self.deriveSpatialState();
     }
 

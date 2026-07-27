@@ -395,12 +395,6 @@ pub export fn processInput(state_ptr: GameLib.GameStatePtr) bool {
         if (event.type == sdl.SDL_EVENT_MOUSE_BUTTON_DOWN or event.type == sdl.SDL_EVENT_MOUSE_BUTTON_UP) {
             const is_down = event.type == sdl.SDL_EVENT_MOUSE_BUTTON_DOWN;
 
-            if (event.type == sdl.SDL_EVENT_MOUSE_BUTTON_DOWN) {
-                _ = sdl.SDL_SetWindowRelativeMouseMode(state.dependencies.window, true);
-            } else {
-                _ = sdl.SDL_SetWindowRelativeMouseMode(state.dependencies.window, false);
-            }
-
             switch (event.button.button) {
                 1 => {
                     state.input.left_mouse.update(is_down, state.time);
@@ -418,6 +412,12 @@ pub export fn processInput(state_ptr: GameLib.GameStatePtr) bool {
         if (event.type == sdl.SDL_EVENT_WINDOW_RESIZED) {
             renderer.reinitWindowSize(&state.renderer, &settings);
             state.camera.setAspectRatio(getAspectRatio());
+        }
+
+        if (state.input.left_button.down or state.camera.mode == .Orbit) {
+            _ = sdl.SDL_SetWindowRelativeMouseMode(state.dependencies.window, true);
+        } else {
+            _ = sdl.SDL_SetWindowRelativeMouseMode(state.dependencies.window, false);
         }
     }
 
@@ -472,10 +472,6 @@ pub export fn tick(state_ptr: GameLib.GameStatePtr, time: u64, delta_time: u64) 
         const mouse_sensitivity: Vector2 = @splat(0.25);
         const mouse_delta = mouse_sensitivity * state.input.mouse_delta * @as(Vector2, @splat(state.deltaTimeActual()));
 
-        if (state.input.left_mouse.down) {
-            state.camera.orbit(mouse_delta);
-        }
-
         if (state.camera.mode == .Orbit) {
             if (state.input.middle_mouse.down) {
                 state.camera.zoom(mouse_delta[Y]);
@@ -487,6 +483,9 @@ pub export fn tick(state_ptr: GameLib.GameStatePtr, time: u64, delta_time: u64) 
             if (state.input.backward_button.down) {
                 state.camera.zoom(-keyboard_speed);
             }
+
+            state.camera.orbit(-mouse_delta);
+            state.camera.setTarget(state.entities.items[0].transform.position);
         } else if (state.camera.mode == .Free) {
             if (state.input.middle_mouse.down) {
                 state.camera.dolly(mouse_delta[Y]);
@@ -503,6 +502,10 @@ pub export fn tick(state_ptr: GameLib.GameStatePtr, time: u64, delta_time: u64) 
             }
             if (state.input.right_button.down) {
                 state.camera.pan(.{ keyboard_speed, 0 });
+            }
+
+            if (state.input.left_mouse.down) {
+                state.camera.orbit(mouse_delta);
             }
         }
     }
