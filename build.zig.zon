@@ -1,12 +1,12 @@
 .{
     .name = .wildcar,
     .version = "0.1.0",
-    .minimum_zig_version = "0.17.0-dev.1252+e4b325c19",
+    .minimum_zig_version = "0.17.0-dev.1465+8b2d0ce21",
     .fingerprint = 0xfba2aade6f03c29b,
     .dependencies = .{
         .flint = .{
-            .url = "git+https://github.com/zoeesilcock/flint.git#1c0fe3cdaa682e4b4086840322b43dfcc7525334",
-            .hash = "flint-0.11.0-PsSSI0oaAgCJ0IAM9GdUyuldPmh8fS5RiRxwKGJaoPY-",
+            .url = "git+https://github.com/zoeesilcock/flint.git#69a753abfd063fb467488803dc0699d4540e749b",
+            .hash = "flint-0.11.0-PsSSI3kZAgAFGuHZWNqvRwu0okntplpv_izEm-f5ovDu",
         },
         .box3d = .{
             .url = "git+https://github.com/erincatto/box3d.git#781673be801569a94be7942848755fc0baad3653",
