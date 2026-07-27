@@ -38,6 +38,10 @@ pub fn updatePhysics(state: *State) void {
     const body_id: c.b3BodyId = car.body_id;
     const wheel_entities: []Entity = car.children[0..4];
 
+    const center_of_mass: Vector3 = b3.b3ToVec(c.b3Body_GetWorldCenter(body_id));
+    const linear_velocity: Vector3 = b3.b3ToVec(c.b3Body_GetLinearVelocity(body_id));
+    const angular_velocity: Vector3 = b3.b3ToVec(c.b3Body_GetAngularVelocity(body_id));
+
     for (wheel_transforms, 0..) |wheel, i| {
         const wheel_transform = wheel.relativeTo(car.transform);
         const wheel_origin = wheel_transform.position;
@@ -80,10 +84,24 @@ pub fn updatePhysics(state: *State) void {
         if (cast.hit) {
             const rest_length: f32 = ray_length;
             const compression: f32 = rest_length - distance;
+
+            // Calculate velocity at wheel origin.
+            const offset: Vector3 = wheel_origin - center_of_mass;
+            const rotational_velocity: Vector3 = math.crossV3(angular_velocity, offset);
+            const point_velocity: Vector3 = linear_velocity + rotational_velocity;
+            const suspension_velocity: f32 = math.dotV3(point_velocity, world_down);
+
+            // Calculate spring force.
             const spring_stiffness: f32 = 1000;
             const spring_force: f32 = spring_stiffness * @max(compression, 0);
-            const force: Vector3 = -world_down * @as(Vector3, @splat(spring_force));
 
+            // Apply damping on the spring force.
+            const damping_coefficient: f32 = 100;
+            const damping_force: f32 = damping_coefficient * suspension_velocity;
+            const support_force: f32 = @max(spring_force + damping_force, 0);
+
+            // Calculate and apply the final force for the wheel.
+            const force: Vector3 = -world_down * @as(Vector3, @splat(support_force));
             c.b3Body_ApplyForce(body_id, b3.vecToB3(force), b3.vecToB3(wheel_origin), false);
         }
     }

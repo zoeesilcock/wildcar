@@ -10,3 +10,7 @@ const Z = math.Z;
 pub fn vecToB3(in: Vector3) c.b3Vec3 {
     return .{ .x = in[X], .y = in[Y], .z = in[Z] };
 }
+
+pub fn b3ToVec(in: c.b3Vec3) Vector3 {
+    return .{ in.x, in.y, in.z };
+}
