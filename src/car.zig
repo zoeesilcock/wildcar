@@ -34,8 +34,10 @@ const SUSPENSION_CRITICAL_DAMPING = 2 * @sqrt(SUSPENSION_STIFFNESS * MASS_PER_WH
 const SUSPENSION_DAMPING_COEFFICIENT = SUSPENSION_DAMPING_RATIO * SUSPENSION_CRITICAL_DAMPING;
 const ACCELERATION_FORCE = 10000;
 const BRAKING_FORCE = 30000;
+const STEER_WHEELS = .{ 0, 2 };
 const DRIVE_WHEELS = .{ 1, 3 };
 const LATERAL_GRIP = 1000;
+const MAX_STEERING_ANGLE = 0.5;
 
 var wheel_transforms: [4]Transform = @splat(.{});
 
@@ -91,8 +93,19 @@ pub fn updatePhysics(state: *State) void {
         forward_force /= @as(Vector3, @splat(DRIVE_WHEELS.len));
     }
 
+    var steering_input: f32 = 0;
+    if (state.input.left_button.down) {
+        steering_input = 1;
+    } else if (state.input.right_button.down) {
+        steering_input = -1;
+    }
+    const steering_angle: f32 = steering_input * MAX_STEERING_ANGLE;
+    const steering_rotation: Quaternion = math.eulerToQuaternion(.{ 0, steering_angle, 0 });
+
     for (wheel_transforms, 0..) |wheel, i| {
         const drive_wheel: bool = DRIVE_WHEELS[0] == i or DRIVE_WHEELS[1] == i;
+        const steer_wheel: bool = STEER_WHEELS[0] == i or STEER_WHEELS[1] == i;
+
         const wheel_transform = wheel.relativeTo(car.transform);
         const wheel_origin = wheel_transform.position;
         const wheel_radius: f32 = 0.66;
@@ -130,6 +143,14 @@ pub fn updatePhysics(state: *State) void {
         // Update position of wheel mesh based on ground distance.
         wheel_entities[i].transform.position[Y] = wheel.position[Y] + (ray_length - distance);
 
+        var wheel_rotation: Quaternion = car.transform.rotation;
+        if (steer_wheel) {
+            wheel_rotation = math.multiplyQuaternion(car.transform.rotation, steering_rotation);
+
+            // Update rotation of wheel mesh.
+            wheel_entities[i].transform.rotation = math.multiplyQuaternion(steering_rotation, wheel.rotation);
+        }
+
         if (cast.hit) {
             const rest_length: f32 = ray_length;
             const compression: f32 = rest_length - distance;
@@ -154,7 +175,8 @@ pub fn updatePhysics(state: *State) void {
             c.b3Body_ApplyForce(body_id, b3.vecToB3(force), b3.vecToB3(wheel_origin), false);
 
             // Apply lateral force.
-            const wheel_forward: Vector3 = math.rotateVectorBy(.{ -1, 0, 0 }, car.transform.rotation);
+            const wheel_forward: Vector3 = math.rotateVectorBy(.{ -1, 0, 0 }, wheel_rotation);
+
             const wheel_lateral: Vector3 = math.crossV3(wheel_forward, world_down);
             const lateral_velocity: f32 = math.dotV3(point_velocity, wheel_lateral);
             const lateral_force: Vector3 = -wheel_lateral * @as(Vector3, @splat(LATERAL_GRIP * lateral_velocity));
