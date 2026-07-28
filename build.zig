@@ -192,7 +192,6 @@ fn addBox3D(
             "-Wextra",
             "-pedantic",
             "-Wno-unused-value",
-            "-fno-sanitize=alignment",
             "-ffp-contract=off",
         },
     });
