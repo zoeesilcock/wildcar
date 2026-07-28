@@ -32,6 +32,10 @@ const SUSPENSION_STIFFNESS = (MASS_PER_WHEEL * game.GRAVITY) / SUSPENSION_PARKED
 const SUSPENSION_DAMPING_RATIO = 0.7;
 const SUSPENSION_CRITICAL_DAMPING = 2 * @sqrt(SUSPENSION_STIFFNESS * MASS_PER_WHEEL);
 const SUSPENSION_DAMPING_COEFFICIENT = SUSPENSION_DAMPING_RATIO * SUSPENSION_CRITICAL_DAMPING;
+const ACCELERATION_FORCE = 10000;
+const BRAKING_FORCE = 30000;
+const DRIVE_WHEELS = .{ 1, 3 };
+const LATERAL_GRIP = 1000;
 
 var wheel_transforms: [4]Transform = @splat(.{});
 
@@ -61,7 +65,34 @@ pub fn updatePhysics(state: *State) void {
     const linear_velocity: Vector3 = b3.b3ToVec(c.b3Body_GetLinearVelocity(body_id));
     const angular_velocity: Vector3 = b3.b3ToVec(c.b3Body_GetAngularVelocity(body_id));
 
+    // Calculate engine/braking force based on player input.
+    var has_forward_force: bool = false;
+    var forward_force: Vector3 = @splat(0);
+    if (state.input.forward_button.down or state.input.backward_button.down) {
+        has_forward_force = true;
+        const local_forward: Vector3 = .{ -1, 0, 0 };
+        const world_forward: Vector3 = math.rotateVectorBy(local_forward, car.transform.rotation);
+        const world_backward: Vector3 = -world_forward;
+        const forward_velocity: f32 = math.dotV3(linear_velocity, world_forward);
+
+        if (state.input.forward_button.down) {
+            forward_force = if (forward_velocity < 0)
+                world_forward * @as(Vector3, @splat(BRAKING_FORCE))
+            else
+                world_forward * @as(Vector3, @splat(ACCELERATION_FORCE));
+        }
+
+        if (state.input.backward_button.down) {
+            forward_force = if (forward_velocity > 0)
+                world_backward * @as(Vector3, @splat(BRAKING_FORCE))
+            else
+                world_backward * @as(Vector3, @splat(ACCELERATION_FORCE));
+        }
+        forward_force /= @as(Vector3, @splat(DRIVE_WHEELS.len));
+    }
+
     for (wheel_transforms, 0..) |wheel, i| {
+        const drive_wheel: bool = DRIVE_WHEELS[0] == i or DRIVE_WHEELS[1] == i;
         const wheel_transform = wheel.relativeTo(car.transform);
         const wheel_origin = wheel_transform.position;
         const wheel_radius: f32 = 0.66;
@@ -99,7 +130,6 @@ pub fn updatePhysics(state: *State) void {
         // Update position of wheel mesh based on ground distance.
         wheel_entities[i].transform.position[Y] = wheel.position[Y] + (ray_length - distance);
 
-        // Apply suspension force to car.
         if (cast.hit) {
             const rest_length: f32 = ray_length;
             const compression: f32 = rest_length - distance;
@@ -119,7 +149,21 @@ pub fn updatePhysics(state: *State) void {
 
             // Calculate and apply the final force for the wheel.
             const force: Vector3 = -world_down * @as(Vector3, @splat(support_force));
+
+            // Apply suspension force to car.
             c.b3Body_ApplyForce(body_id, b3.vecToB3(force), b3.vecToB3(wheel_origin), false);
+
+            // Apply lateral force.
+            const wheel_forward: Vector3 = math.rotateVectorBy(.{ -1, 0, 0 }, car.transform.rotation);
+            const wheel_lateral: Vector3 = math.crossV3(wheel_forward, world_down);
+            const lateral_velocity: f32 = math.dotV3(point_velocity, wheel_lateral);
+            const lateral_force: Vector3 = -wheel_lateral * @as(Vector3, @splat(LATERAL_GRIP * lateral_velocity));
+            c.b3Body_ApplyForce(body_id, b3.vecToB3(lateral_force), b3.vecToB3(wheel_origin), false);
+        }
+
+        // Apply engine/braking force.
+        if (cast.hit and drive_wheel and has_forward_force) {
+            c.b3Body_ApplyForce(body_id, b3.vecToB3(forward_force), b3.vecToB3(wheel_origin), false);
         }
     }
 }

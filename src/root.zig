@@ -477,10 +477,10 @@ pub export fn tick(state_ptr: GameLib.GameStatePtr, time: u64, delta_time: u64) 
                 state.camera.zoom(mouse_delta[Y]);
             }
 
-            if (state.input.forward_button.down) {
+            if (state.input.shift_is_down and state.input.forward_button.down) {
                 state.camera.zoom(keyboard_speed);
             }
-            if (state.input.backward_button.down) {
+            if (state.input.shift_is_down and state.input.backward_button.down) {
                 state.camera.zoom(-keyboard_speed);
             }
 
