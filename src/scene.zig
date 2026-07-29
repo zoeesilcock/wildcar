@@ -107,8 +107,6 @@ pub fn load(state: *State) void {
         shape_def.baseMaterial.friction = 0.3;
         _ = c.b3CreateHullShape(entity.body_id, &shape_def, &box.base);
     }
-
-    car.init(state.entities.items[0]);
 }
 
 pub fn unload(state: *State) void {

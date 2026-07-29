@@ -261,6 +261,11 @@ pub export fn initFull3D(dependencies: GameLib.Dependencies.Full3D) GameLib.Game
 
     scene.load(state);
 
+    car.init(
+        state.entities.items[0],
+        .loadFromFile("assets/cars/default.zon", state.allocator, state.dependencies.io.*),
+    );
+
     return state;
 }
 
@@ -268,12 +273,14 @@ pub export fn deinit(state_ptr: GameLib.GameStatePtr) void {
     const state: *State = @ptrCast(@alignCast(state_ptr));
     renderer.deinit(&state.renderer);
     scene.unload(state);
+    car.deinit(state.allocator);
 }
 
 pub export fn willReload(state_ptr: GameLib.GameStatePtr) void {
     const state: *State = @ptrCast(@alignCast(state_ptr));
     renderer.deinit(&state.renderer);
     scene.unload(state);
+    car.deinit(state.allocator);
 }
 
 pub export fn reloaded(state_ptr: GameLib.GameStatePtr, imgui_context: ?*imgui.ImGuiContext) void {
@@ -296,6 +303,11 @@ pub export fn reloaded(state_ptr: GameLib.GameStatePtr, imgui_context: ?*imgui.I
     // state.camera = .init(getAspectRatio());
 
     scene.load(state);
+
+    car.init(
+        state.entities.items[0],
+        .loadFromFile("assets/cars/default.zon", state.allocator, state.dependencies.io.*),
+    );
 }
 
 pub export fn processInput(state_ptr: GameLib.GameStatePtr) bool {

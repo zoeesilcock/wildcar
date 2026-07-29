@@ -1,0 +1,20 @@
+// Car measurements:
+//
+// Chassi size: 4x2
+// Wheel radius: 0.66
+// Wheel positions:
+// * X: 2/-2
+// * Z: 2/-2
+.{
+    .mass = 1000,
+    .engine_power = 75,
+    .max_acceleration = 5,
+    .max_braking_deceleration = 10,
+    .wheel_radius = 0.66,
+    .drive_wheels = .{ 1, 3 },
+    .steer_wheels = .{ 0, 2 },
+    .max_steering_angle = 0.5,
+    .lateral_grip = 1000,
+    .suspension_parked_compression = 0.1,
+    .suspension_damping_ratio = 0.7,
+}
