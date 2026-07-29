@@ -25,19 +25,22 @@ const X = math.X;
 const Y = math.Y;
 const Z = math.Z;
 
-const CAR_MASS = 1000;
-const MASS_PER_WHEEL = CAR_MASS / 4;
-const SUSPENSION_PARKED_COMPRESSION = 0.1;
-const SUSPENSION_STIFFNESS = (MASS_PER_WHEEL * game.GRAVITY) / SUSPENSION_PARKED_COMPRESSION;
-const SUSPENSION_DAMPING_RATIO = 0.7;
-const SUSPENSION_CRITICAL_DAMPING = 2 * @sqrt(SUSPENSION_STIFFNESS * MASS_PER_WHEEL);
-const SUSPENSION_DAMPING_COEFFICIENT = SUSPENSION_DAMPING_RATIO * SUSPENSION_CRITICAL_DAMPING;
-const ACCELERATION_FORCE = 10000;
-const BRAKING_FORCE = 30000;
+const CAR_MASS = 1000; // Kg
+const WHEEL_COUNT = 4;
+const ENGINE_POWER = 75; // kW
+const ACCELERATION = 5; // m/s²
+const BRAKING = 10; // m/s²
 const STEER_WHEELS = .{ 0, 2 };
 const DRIVE_WHEELS = .{ 1, 3 };
 const LATERAL_GRIP = 1000;
 const MAX_STEERING_ANGLE = 0.5;
+const SUSPENSION_PARKED_COMPRESSION = 0.1; // m
+
+const MASS_PER_WHEEL = CAR_MASS / WHEEL_COUNT;
+const SUSPENSION_STIFFNESS = (MASS_PER_WHEEL * game.GRAVITY) / SUSPENSION_PARKED_COMPRESSION;
+const SUSPENSION_DAMPING_RATIO = 0.7;
+const SUSPENSION_CRITICAL_DAMPING = 2 * @sqrt(SUSPENSION_STIFFNESS * MASS_PER_WHEEL);
+const SUSPENSION_DAMPING_COEFFICIENT = SUSPENSION_DAMPING_RATIO * SUSPENSION_CRITICAL_DAMPING;
 
 var wheel_transforms: [4]Transform = @splat(.{});
 
@@ -76,28 +79,36 @@ pub fn updatePhysics(state: *State) void {
         const world_forward: Vector3 = math.rotateVectorBy(local_forward, car.transform.rotation);
         const world_backward: Vector3 = -world_forward;
         const forward_velocity: f32 = math.dotV3(linear_velocity, world_forward);
+        const minimum_speed: f32 = 1;
+        const forward_speed: f32 = @abs(forward_velocity);
+        const low_speed_force: f32 = CAR_MASS * ACCELERATION;
+        const engine_force = @min(low_speed_force, ENGINE_POWER * 1000 / @max(forward_speed, minimum_speed));
 
         if (state.input.forward_button.down) {
             if (forward_velocity < 0) {
                 has_braking_force = true;
-                wheel_force = world_forward * @as(Vector3, @splat(BRAKING_FORCE));
+                wheel_force = world_forward * @as(Vector3, @splat(CAR_MASS * BRAKING));
             } else {
                 has_engine_force = true;
-                wheel_force = world_forward * @as(Vector3, @splat(ACCELERATION_FORCE));
+                wheel_force = world_forward * @as(Vector3, @splat(engine_force));
             }
         }
 
         if (state.input.backward_button.down) {
             if (forward_velocity > 0) {
                 has_braking_force = true;
-                wheel_force = world_backward * @as(Vector3, @splat(BRAKING_FORCE));
+                wheel_force = world_backward * @as(Vector3, @splat(CAR_MASS * BRAKING));
             } else {
                 has_engine_force = true;
-                wheel_force = world_backward * @as(Vector3, @splat(ACCELERATION_FORCE));
+                wheel_force = world_backward * @as(Vector3, @splat(engine_force));
             }
         }
 
-        wheel_force /= @as(Vector3, @splat(DRIVE_WHEELS.len));
+        if (has_engine_force) {
+            wheel_force /= @as(Vector3, @splat(DRIVE_WHEELS.len));
+        } else if (has_braking_force) {
+            wheel_force /= @as(Vector3, @splat(WHEEL_COUNT));
+        }
     }
 
     var steering_input: f32 = 0;
@@ -110,8 +121,8 @@ pub fn updatePhysics(state: *State) void {
     const steering_rotation: Quaternion = math.eulerToQuaternion(.{ 0, steering_angle, 0 });
 
     for (wheel_transforms, 0..) |wheel, i| {
-        const drive_wheel: bool = DRIVE_WHEELS[0] == i or DRIVE_WHEELS[1] == i;
-        const steer_wheel: bool = STEER_WHEELS[0] == i or STEER_WHEELS[1] == i;
+        const is_drive_wheel: bool = DRIVE_WHEELS[0] == i or DRIVE_WHEELS[1] == i;
+        const is_steer_wheel: bool = STEER_WHEELS[0] == i or STEER_WHEELS[1] == i;
 
         const wheel_transform = wheel.relativeTo(car.transform);
         const wheel_origin = wheel_transform.position;
@@ -151,7 +162,7 @@ pub fn updatePhysics(state: *State) void {
         wheel_entities[i].transform.position[Y] = wheel.position[Y] + (ray_length - distance);
 
         var wheel_rotation: Quaternion = car.transform.rotation;
-        if (steer_wheel) {
+        if (is_steer_wheel) {
             wheel_rotation = math.multiplyQuaternion(car.transform.rotation, steering_rotation);
 
             // Update rotation of wheel mesh.
@@ -191,7 +202,7 @@ pub fn updatePhysics(state: *State) void {
         }
 
         // Apply engine/braking force.
-        if (cast.hit and ((drive_wheel and has_engine_force) or has_braking_force)) {
+        if (cast.hit and ((is_drive_wheel and has_engine_force) or has_braking_force)) {
             c.b3Body_ApplyForce(body_id, b3.vecToB3(wheel_force), b3.vecToB3(wheel_origin), false);
         }
     }
