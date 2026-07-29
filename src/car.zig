@@ -68,29 +68,36 @@ pub fn updatePhysics(state: *State) void {
     const angular_velocity: Vector3 = b3.b3ToVec(c.b3Body_GetAngularVelocity(body_id));
 
     // Calculate engine/braking force based on player input.
-    var has_forward_force: bool = false;
-    var forward_force: Vector3 = @splat(0);
+    var has_engine_force: bool = false;
+    var has_braking_force: bool = false;
+    var wheel_force: Vector3 = @splat(0);
     if (state.input.forward_button.down or state.input.backward_button.down) {
-        has_forward_force = true;
         const local_forward: Vector3 = .{ -1, 0, 0 };
         const world_forward: Vector3 = math.rotateVectorBy(local_forward, car.transform.rotation);
         const world_backward: Vector3 = -world_forward;
         const forward_velocity: f32 = math.dotV3(linear_velocity, world_forward);
 
         if (state.input.forward_button.down) {
-            forward_force = if (forward_velocity < 0)
-                world_forward * @as(Vector3, @splat(BRAKING_FORCE))
-            else
-                world_forward * @as(Vector3, @splat(ACCELERATION_FORCE));
+            if (forward_velocity < 0) {
+                has_braking_force = true;
+                wheel_force = world_forward * @as(Vector3, @splat(BRAKING_FORCE));
+            } else {
+                has_engine_force = true;
+                wheel_force = world_forward * @as(Vector3, @splat(ACCELERATION_FORCE));
+            }
         }
 
         if (state.input.backward_button.down) {
-            forward_force = if (forward_velocity > 0)
-                world_backward * @as(Vector3, @splat(BRAKING_FORCE))
-            else
-                world_backward * @as(Vector3, @splat(ACCELERATION_FORCE));
+            if (forward_velocity > 0) {
+                has_braking_force = true;
+                wheel_force = world_backward * @as(Vector3, @splat(BRAKING_FORCE));
+            } else {
+                has_engine_force = true;
+                wheel_force = world_backward * @as(Vector3, @splat(ACCELERATION_FORCE));
+            }
         }
-        forward_force /= @as(Vector3, @splat(DRIVE_WHEELS.len));
+
+        wheel_force /= @as(Vector3, @splat(DRIVE_WHEELS.len));
     }
 
     var steering_input: f32 = 0;
@@ -184,8 +191,8 @@ pub fn updatePhysics(state: *State) void {
         }
 
         // Apply engine/braking force.
-        if (cast.hit and drive_wheel and has_forward_force) {
-            c.b3Body_ApplyForce(body_id, b3.vecToB3(forward_force), b3.vecToB3(wheel_origin), false);
+        if (cast.hit and ((drive_wheel and has_engine_force) or has_braking_force)) {
+            c.b3Body_ApplyForce(body_id, b3.vecToB3(wheel_force), b3.vecToB3(wheel_origin), false);
         }
     }
 }
