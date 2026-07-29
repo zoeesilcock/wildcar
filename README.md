@@ -23,6 +23,8 @@ Learning about 3D rendering and car physics.
         * WASD: Moves left/right and forward/backward (hold shift for faster movement).
 * F4: Toggle showing collision bodies.
 * F5: Toggle showing suspension.
+* F6: Toggle reset scene on reload.
+* F7: Toggle reset camera on reload.
 * G: Toggle game state inspector.
 
 

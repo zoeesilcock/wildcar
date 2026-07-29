@@ -10,6 +10,7 @@ const debug_shapes = if (INTERNAL) @import("debug_shapes.zig") else undefined;
 const renderer = @import("render/renderer.zig");
 const scene = @import("scene.zig");
 const car = @import("car.zig");
+const b3 = @import("b3.zig");
 
 const INTERNAL: bool = @import("build_options").internal;
 pub const GRAVITY = 9.81;
@@ -139,11 +140,13 @@ pub const State = struct {
     // Internal.
     internal: if (INTERNAL) struct {
         output: *flint.internal.DebugOutputWindow = undefined,
+        debug_box_count: u32 = 0,
+        debug_boxes: [128]debug_shapes.Box = @splat(undefined),
         inspect_game_state: bool = false,
         show_collision_bodies: bool = false,
         show_suspension: bool = true,
-        debug_box_count: u32 = 0,
-        debug_boxes: [128]debug_shapes.Box = @splat(undefined),
+        reset_scene_on_reload: bool = false,
+        reset_camera_on_reload: bool = false,
     } else extern struct {} = undefined,
 
     pub fn currentTime(self: *State) f32 {
@@ -260,9 +263,10 @@ pub export fn initFull3D(dependencies: GameLib.Dependencies.Full3D) GameLib.Game
     state.camera = .init(getAspectRatio());
 
     scene.load(state);
+    scene.initBox3D(state);
 
     car.init(
-        state.entities.items[0],
+        &state.entities.items[0],
         .loadFromFile("assets/cars/default.zon", state.allocator, state.dependencies.io.*),
     );
 
@@ -273,13 +277,18 @@ pub export fn deinit(state_ptr: GameLib.GameStatePtr) void {
     const state: *State = @ptrCast(@alignCast(state_ptr));
     renderer.deinit(&state.renderer);
     scene.unload(state);
+    scene.deinitBox3D(state);
     car.deinit(state.allocator);
 }
 
 pub export fn willReload(state_ptr: GameLib.GameStatePtr) void {
     const state: *State = @ptrCast(@alignCast(state_ptr));
     renderer.deinit(&state.renderer);
-    scene.unload(state);
+
+    if (state.internal.reset_scene_on_reload) {
+        scene.unload(state);
+    }
+    scene.deinitBox3D(state);
     car.deinit(state.allocator);
 }
 
@@ -299,13 +308,17 @@ pub export fn reloaded(state_ptr: GameLib.GameStatePtr, imgui_context: ?*imgui.I
         state.dependencies.io.*,
     );
 
-    // Use this when working on camera.
-    // state.camera = .init(getAspectRatio());
+    if (state.internal.reset_camera_on_reload) {
+        state.camera = .init(getAspectRatio());
+    }
 
-    scene.load(state);
+    if (state.internal.reset_scene_on_reload) {
+        scene.load(state);
+    }
+    scene.initBox3D(state);
 
     car.init(
-        state.entities.items[0],
+        &state.entities.items[0],
         .loadFromFile("assets/cars/default.zon", state.allocator, state.dependencies.io.*),
     );
 }
@@ -366,6 +379,16 @@ pub export fn processInput(state_ptr: GameLib.GameStatePtr) bool {
                 sdl.SDLK_F5 => {
                     if (INTERNAL) {
                         state.internal.show_suspension = !state.internal.show_suspension;
+                    }
+                },
+                sdl.SDLK_F6 => {
+                    if (INTERNAL) {
+                        state.internal.reset_scene_on_reload = !state.internal.reset_scene_on_reload;
+                    }
+                },
+                sdl.SDLK_F7 => {
+                    if (INTERNAL) {
+                        state.internal.reset_camera_on_reload = !state.internal.reset_camera_on_reload;
                     }
                 },
                 sdl.SDLK_G => {
@@ -447,7 +470,7 @@ pub export fn tick(state_ptr: GameLib.GameStatePtr, time: u64, delta_time: u64) 
     const time_step: f32 = 1.0 / 60.0;
     const sub_step_count: u32 = 4;
 
-    car.updatePhysics(state);
+    car.updatePhysics(state, &state.entities.items[0]);
 
     c.b3World_Step(state.world_id, time_step, sub_step_count);
 

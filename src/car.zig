@@ -64,7 +64,7 @@ var suspension_damping_ratio: f32 = 0;
 var suspension_critical_damping: f32 = 0;
 var suspension_damping_coefficient: f32 = 0;
 
-pub fn init(car: Entity, spec: Spec) void {
+pub fn init(car: *const Entity, spec: Spec) void {
     car_spec = spec;
 
     mass_per_wheel = car_spec.mass / @as(f32, @floatFromInt(car_spec.wheel_count));
@@ -93,8 +93,7 @@ fn setWheels(wheels: *[4]Entity) void {
     }
 }
 
-pub fn updatePhysics(state: *State) void {
-    const car: Entity = state.entities.items[0];
+pub fn updatePhysics(state: *State, car: *const Entity) void {
     const body_id: c.b3BodyId = car.body_id;
     const wheel_entities: []Entity = car.children[0..4];
 
