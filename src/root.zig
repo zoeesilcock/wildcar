@@ -449,7 +449,9 @@ pub export fn processInput(state_ptr: GameLib.GameStatePtr) bool {
             state.camera.setAspectRatio(getAspectRatio());
         }
 
-        if (state.input.left_button.down or state.camera.mode == .Orbit) {
+        if (!state.internal.inspect_game_state and
+            (state.input.left_button.down or state.camera.mode == .Orbit))
+        {
             _ = sdl.SDL_SetWindowRelativeMouseMode(state.dependencies.window, true);
         } else {
             _ = sdl.SDL_SetWindowRelativeMouseMode(state.dependencies.window, false);
