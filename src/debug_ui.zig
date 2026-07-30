@@ -1,3 +1,4 @@
+const std = @import("std");
 const flint = @import("flint");
 const sdl = flint.sdl.c;
 const imgui = flint.imgui;
@@ -92,6 +93,11 @@ pub fn draw(state: *State, context: *FrameContext, swapchain_texture: *sdl.SDL_G
         flint.internal.inspectStruct(&car.car_spec, &.{ "wheel_count", "drive_wheels", "steer_wheels" }, false, &.{
             .slider(f32, "suspension_damping_ratio", 0, 1),
         }, inputCustomTypes);
+
+        imgui.c.ImGui_Dummy(imgui.c.ImVec2{ .x = 0, .y = 16 });
+        if (imgui.c.ImGui_ButtonEx("Save", imgui.c.ImVec2{ .x = -std.math.floatMin(f32), .y = 0 })) {
+            car.car_spec.saveToFile("assets/cars/default.zon", state.allocator, state.dependencies.io.*);
+        }
     }
 
     imgui.renderGPU(context.command_buffer, swapchain_texture);

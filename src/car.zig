@@ -50,9 +50,30 @@ pub const Spec = struct {
             spec = std.zon.parse.fromSliceAlloc(Spec, allocator, spec_slice, null, .{}) catch
                 @panic("Failed to parse car spec .zon file");
         } else |_| {
-            @panic("Failed to open car spec file");
+            @panic("Failed to open car spec file for reading");
         }
         return spec;
+    }
+
+    pub fn saveToFile(self: Spec, path: []const u8, allocator: std.mem.Allocator, io: std.Io) void {
+        if (flint.fs.getFilePathRelative(io, path, allocator)) |relative_path| {
+            defer allocator.free(relative_path);
+
+            const scene_file = flint.fs.createFileRelative(io, relative_path, .{}) catch
+                @panic("Failed to open car spec file");
+            defer scene_file.close(io);
+
+            var buf: [1024]u8 = undefined;
+            var file_writer = scene_file.writer(io, &buf);
+            const writer = &file_writer.interface;
+
+            std.zon.stringify.serialize(self, .{
+                .emit_default_optional_fields = false,
+            }, writer) catch @panic("Failed to stringify car spec");
+            writer.flush() catch undefined;
+        } else |_| {
+            @panic("Failed to open car spec file for saving");
+        }
     }
 };
 
