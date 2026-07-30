@@ -57,7 +57,7 @@ pub fn draw(state: *State, context: *FrameContext) void {
 }
 
 pub fn drawCollisionShapes(state: *State, context: *FrameContext, entity: Entity) void {
-    if (state.internal.show_collision_bodies) {
+    if (state.internal.show_collision_bodies and entity.has_collider) {
         const body_transform: c.b3Transform = c.b3Body_GetTransform(entity.body_id);
 
         renderer.drawLineCube(&state.renderer, context, .{

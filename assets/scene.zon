@@ -14,24 +14,28 @@
                     .scale = .{ 0.66, 0.66, 0.3 },
                     .rotation = .{ 0, 0, 0 },
                     .color = .{ 0.1, 0.1, 0.2, 1 },
+                    .has_collider = false,
                 },
                 .{
                     .position = .{ 2, -1, 2 },
                     .scale = .{ 0.66, 0.66, 0.3 },
                     .rotation = .{ 0, 0, 0 },
                     .color = .{ 0.1, 0.1, 0.2, 1 },
+                    .has_collider = false,
                 },
                 .{
                     .position = .{ -2, -1, -2 },
                     .scale = .{ 0.66, 0.66, 0.3 },
                     .rotation = .{ 0, 0, 0 },
                     .color = .{ 0.1, 0.1, 0.2, 1 },
+                    .has_collider = false,
                 },
                 .{
                     .position = .{ 2, -1, -2 },
                     .scale = .{ 0.66, 0.66, 0.3 },
                     .rotation = .{ 0, 0, 0 },
                     .color = .{ 0.1, 0.1, 0.2, 1 },
+                    .has_collider = false,
                 },
                 // Cab.
                 .{

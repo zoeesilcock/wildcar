@@ -219,6 +219,7 @@ pub const Entity = struct {
     transform: Transform = .{},
     color: Color = .{ 0.9, 0.3, 0.2, 1 },
     body_id: c.b3BodyId = undefined,
+    has_collider: bool = true,
     is_dynamic: bool = false,
     children: []Entity = &.{},
 };

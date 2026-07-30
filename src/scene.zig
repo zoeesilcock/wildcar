@@ -4,9 +4,12 @@ const flint = @import("flint");
 const math = @import("math");
 const game = @import("root.zig");
 const car = @import("car.zig");
+const b3 = @import("b3.zig");
 
 // Types.
 const State = game.State;
+const Entity = game.Entity;
+const Transform = math.Transform;
 const Vector3 = math.Vector3;
 const Color = math.Color;
 const X = math.X;
@@ -19,6 +22,7 @@ const SceneEntity = struct {
     scale: Vector3,
     rotation: Vector3,
     color: Color = .{ 0.9, 0.3, 0.2, 1 },
+    has_collider: bool = true,
     is_dynamic: bool = false,
     children: []SceneEntity = &.{},
 };
@@ -60,9 +64,10 @@ pub fn load(state: *State) void {
                 .scale = item.scale,
                 .rotation = math.eulerToQuaternion(item.rotation),
             },
+            .has_collider = item.has_collider,
             .is_dynamic = item.is_dynamic,
             .color = item.color,
-            .children = state.allocator.alloc(game.Entity, item.children.len) catch @panic("Failed to allocate child entities"),
+            .children = state.allocator.alloc(Entity, item.children.len) catch @panic("Failed to allocate child entities"),
         };
 
         for (item.children, 0..) |child, i| {
@@ -72,6 +77,7 @@ pub fn load(state: *State) void {
                     .scale = child.scale,
                     .rotation = math.eulerToQuaternion(child.rotation),
                 },
+                .has_collider = child.has_collider,
                 .is_dynamic = child.is_dynamic,
                 .color = child.color,
             };
@@ -98,6 +104,24 @@ pub fn initBox3D(state: *State) void {
     _ = c.b3CreateHullShape(ground_id, &ground_shape_def, &ground_box.base);
 
     for (state.entities.items) |*entity| {
+        if (entity.has_collider) {
+            entity.body_id = spawnBodyForEntity(entity, null, state.world_id);
+        }
+
+        for (entity.children) |*child_entity| {
+            if (child_entity.has_collider) {
+                child_entity.body_id = spawnBodyForEntity(child_entity, entity, state.world_id);
+            }
+        }
+    }
+}
+
+fn spawnBodyForEntity(entity: *const Entity, parent_entity: ?*const Entity, world_id: c.b3WorldId) c.b3BodyId {
+    var body_id: c.b3BodyId = undefined;
+
+    if (parent_entity) |parent| {
+        body_id = parent.body_id;
+    } else {
         var body_def: c.b3BodyDef = c.b3DefaultBodyDef();
         body_def.position = .{
             .x = entity.transform.position[X],
@@ -112,20 +136,38 @@ pub fn initBox3D(state: *State) void {
             },
             .s = entity.transform.rotation[W],
         };
-        body_def.type = if (entity.is_dynamic) c.b3_dynamicBody else c.b3_staticBody;
+        body_def.type = if (entity.is_dynamic or (parent_entity != null and parent_entity.?.is_dynamic))
+            c.b3_dynamicBody
+        else
+            c.b3_staticBody;
 
-        entity.body_id = c.b3CreateBody(state.world_id, &body_def);
+        body_id = c.b3CreateBody(world_id, &body_def);
+    }
 
-        const box: c.b3BoxHull = c.b3MakeBoxHull(
+    const box: c.b3BoxHull = if (parent_entity == null)
+        c.b3MakeBoxHull(
             entity.transform.scale[X],
             entity.transform.scale[Y],
             entity.transform.scale[Z],
+        )
+    else
+        c.b3MakeTransformedBoxHull(
+            entity.transform.scale[X],
+            entity.transform.scale[Y],
+            entity.transform.scale[Z],
+            .{
+                .p = b3.vecToB3(entity.transform.position),
+                .q = b3.quatToB3(entity.transform.rotation),
+            },
         );
-        var shape_def: c.b3ShapeDef = c.b3DefaultShapeDef();
-        shape_def.density = 1;
-        shape_def.baseMaterial.friction = 0.3;
-        _ = c.b3CreateHullShape(entity.body_id, &shape_def, &box.base);
-    }
+
+    var shape_def: c.b3ShapeDef = c.b3DefaultShapeDef();
+    shape_def.density = 1;
+    shape_def.baseMaterial.friction = 0.3;
+
+    _ = c.b3CreateHullShape(body_id, &shape_def, &box.base);
+
+    return body_id;
 }
 
 pub fn deinitBox3D(state: *State) void {
