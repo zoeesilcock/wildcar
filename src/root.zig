@@ -142,7 +142,9 @@ pub const State = struct {
         output: *flint.internal.DebugOutputWindow = undefined,
         debug_box_count: u32 = 0,
         debug_boxes: [128]debug_shapes.Box = @splat(undefined),
+        debug_ui_active: bool = false,
         inspect_game_state: bool = false,
+        inspect_car_spec: bool = false,
         show_collision_bodies: bool = false,
         show_suspension: bool = true,
         reset_scene_on_reload: bool = false,
@@ -396,6 +398,11 @@ pub export fn processInput(state_ptr: GameLib.GameStatePtr) bool {
                         state.internal.inspect_game_state = !state.internal.inspect_game_state;
                     }
                 },
+                sdl.SDLK_C => {
+                    if (INTERNAL) {
+                        state.internal.inspect_car_spec = !state.internal.inspect_car_spec;
+                    }
+                },
                 else => {},
             }
         }
@@ -449,7 +456,11 @@ pub export fn processInput(state_ptr: GameLib.GameStatePtr) bool {
             state.camera.setAspectRatio(getAspectRatio());
         }
 
-        if (!state.internal.inspect_game_state and
+        if (INTERNAL) {
+            state.internal.debug_ui_active = state.internal.inspect_game_state or state.internal.inspect_car_spec;
+        }
+
+        if ((!INTERNAL or !state.internal.debug_ui_active) and
             (state.input.left_button.down or state.camera.mode == .Orbit))
         {
             _ = sdl.SDL_SetWindowRelativeMouseMode(state.dependencies.window, true);
@@ -521,7 +532,9 @@ pub export fn tick(state_ptr: GameLib.GameStatePtr, time: u64, delta_time: u64) 
                 state.camera.zoom(-keyboard_speed);
             }
 
-            state.camera.orbit(-mouse_delta);
+            if (!INTERNAL or !state.internal.debug_ui_active) {
+                state.camera.orbit(-mouse_delta);
+            }
             state.camera.setTarget(state.entities.items[0].transform.position);
         } else if (state.camera.mode == .Free) {
             if (state.input.middle_mouse.down) {

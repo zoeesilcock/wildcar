@@ -56,7 +56,7 @@ pub const Spec = struct {
     }
 };
 
-var car_spec: Spec = undefined;
+pub var car_spec: Spec = undefined;
 var wheel_transforms: [4]Transform = @splat(.{});
 var mass_per_wheel: f32 = 0;
 var suspension_stiffness: f32 = 0;
