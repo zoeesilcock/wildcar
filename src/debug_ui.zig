@@ -92,6 +92,7 @@ pub fn draw(state: *State, context: *FrameContext, swapchain_texture: *sdl.SDL_G
 
         flint.internal.inspectStruct(&car.car_spec, &.{ "wheel_count", "drive_wheels", "steer_wheels" }, false, &.{
             .slider(f32, "suspension_damping_ratio", 0, 1),
+            .slider(f32, "friction_coefficient", 0.1, 2),
         }, inputCustomTypes);
 
         imgui.c.ImGui_Dummy(imgui.c.ImVec2{ .x = 0, .y = 16 });

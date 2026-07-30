@@ -22,15 +22,16 @@ pub const Spec = struct {
     mass: f32, // Kg.
 
     engine_power: f32, // kW.
-    max_acceleration: f32, // m/s²
-    max_braking_deceleration: f32, // m/s²
+    max_acceleration: f32, // m/s².
+    max_braking_deceleration: f32, // m/s².
 
     wheel_count: i32 = 4,
     wheel_radius: f32, // M.
     drive_wheels: []const usize,
     steer_wheels: []const usize,
     max_steering_angle: f32,
-    lateral_grip: f32,
+    lateral_stiffness: f32, // N / (m/s).
+    friction_coefficient: f32,
     suspension_parked_compression: f32,
     suspension_damping_ratio: f32,
 
@@ -80,20 +81,11 @@ pub const Spec = struct {
 pub var car_spec: Spec = undefined;
 var wheel_transforms: [4]Transform = @splat(.{});
 var mass_per_wheel: f32 = 0;
-var suspension_stiffness: f32 = 0;
-var suspension_damping_ratio: f32 = 0;
-var suspension_critical_damping: f32 = 0;
-var suspension_damping_coefficient: f32 = 0;
 
 pub fn init(car: *const Entity, spec: Spec) void {
     car_spec = spec;
 
     mass_per_wheel = car_spec.mass / @as(f32, @floatFromInt(car_spec.wheel_count));
-    suspension_stiffness = (mass_per_wheel * game.GRAVITY) / car_spec.suspension_parked_compression;
-    suspension_damping_ratio = 0.7;
-    suspension_critical_damping = 2 * @sqrt(suspension_stiffness * mass_per_wheel);
-    suspension_damping_coefficient = suspension_damping_ratio * suspension_critical_damping;
-
     setWheels(car.children[0..4]);
 
     // Set mass.
@@ -125,7 +117,7 @@ pub fn updatePhysics(state: *State, car: *const Entity) void {
     // Calculate engine/braking force based on player input.
     var has_engine_force: bool = false;
     var has_braking_force: bool = false;
-    var wheel_force: Vector3 = @splat(0);
+    var longitudinal_force: Vector3 = @splat(0);
     if (state.input.forward_button.down or state.input.backward_button.down) {
         const local_forward: Vector3 = .{ -1, 0, 0 };
         const world_forward: Vector3 = math.rotateVectorBy(local_forward, car.transform.rotation);
@@ -139,27 +131,27 @@ pub fn updatePhysics(state: *State, car: *const Entity) void {
         if (state.input.forward_button.down) {
             if (forward_velocity < 0) {
                 has_braking_force = true;
-                wheel_force = world_forward * @as(Vector3, @splat(car_spec.mass * car_spec.max_braking_deceleration));
+                longitudinal_force = world_forward * @as(Vector3, @splat(car_spec.mass * car_spec.max_braking_deceleration));
             } else {
                 has_engine_force = true;
-                wheel_force = world_forward * @as(Vector3, @splat(engine_force));
+                longitudinal_force = world_forward * @as(Vector3, @splat(engine_force));
             }
         }
 
         if (state.input.backward_button.down) {
             if (forward_velocity > 0) {
                 has_braking_force = true;
-                wheel_force = world_backward * @as(Vector3, @splat(car_spec.mass * car_spec.max_braking_deceleration));
+                longitudinal_force = world_backward * @as(Vector3, @splat(car_spec.mass * car_spec.max_braking_deceleration));
             } else {
                 has_engine_force = true;
-                wheel_force = world_backward * @as(Vector3, @splat(engine_force));
+                longitudinal_force = world_backward * @as(Vector3, @splat(engine_force));
             }
         }
 
         if (has_engine_force) {
-            wheel_force /= @as(Vector3, @splat(@floatFromInt(car_spec.drive_wheels.len)));
+            longitudinal_force /= @as(Vector3, @splat(@floatFromInt(car_spec.drive_wheels.len)));
         } else if (has_braking_force) {
-            wheel_force /= @as(Vector3, @splat(@floatFromInt(car_spec.wheel_count)));
+            longitudinal_force /= @as(Vector3, @splat(@floatFromInt(car_spec.wheel_count)));
         }
     }
 
@@ -171,6 +163,10 @@ pub fn updatePhysics(state: *State, car: *const Entity) void {
     }
     const steering_angle: f32 = steering_input * car_spec.max_steering_angle;
     const steering_rotation: Quaternion = math.eulerToQuaternion(.{ 0, steering_angle, 0 });
+
+    const suspension_stiffness: f32 = (mass_per_wheel * game.GRAVITY) / car_spec.suspension_parked_compression;
+    const suspension_critical_damping = 2 * @sqrt(suspension_stiffness * mass_per_wheel);
+    const suspension_damping_coefficient = car_spec.suspension_damping_ratio * suspension_critical_damping;
 
     for (wheel_transforms, 0..) |wheel, i| {
         const is_drive_wheel: bool = car_spec.drive_wheels[0] == i or car_spec.drive_wheels[1] == i;
@@ -243,18 +239,29 @@ pub fn updatePhysics(state: *State, car: *const Entity) void {
             // Apply suspension force to car.
             c.b3Body_ApplyForce(body_id, b3.vecToB3(force), b3.vecToB3(wheel_origin), false);
 
-            // Apply lateral force.
+            // Calculate lateral force.
             const wheel_forward: Vector3 = math.rotateVectorBy(.{ -1, 0, 0 }, wheel_rotation);
-
             const wheel_lateral: Vector3 = math.crossV3(wheel_forward, world_down);
             const lateral_velocity: f32 = math.dotV3(point_velocity, wheel_lateral);
-            const lateral_force: Vector3 = -wheel_lateral * @as(Vector3, @splat(car_spec.lateral_grip * lateral_velocity));
-            c.b3Body_ApplyForce(body_id, b3.vecToB3(lateral_force), b3.vecToB3(wheel_origin), false);
-        }
 
-        // Apply engine/braking force.
-        if (cast.hit and ((is_drive_wheel and has_engine_force) or has_braking_force)) {
-            c.b3Body_ApplyForce(body_id, b3.vecToB3(wheel_force), b3.vecToB3(wheel_origin), false);
+            const max_tire_force: f32 = car_spec.friction_coefficient * support_force;
+            const requested_lateral_force: f32 = car_spec.lateral_stiffness * lateral_velocity;
+            const lateral_force: Vector3 = -wheel_lateral * @as(Vector3, @splat(requested_lateral_force));
+
+            // Combine with engine/braking force.
+            var total_force: Vector3 = lateral_force;
+            if ((is_drive_wheel and has_engine_force) or has_braking_force) {
+                total_force += longitudinal_force;
+            }
+
+            // Clamp total force.
+            const total_force_magnitude: f32 = @sqrt(math.dotV3(total_force, total_force));
+            if (total_force_magnitude > max_tire_force) {
+                const scale: f32 = max_tire_force / total_force_magnitude;
+                total_force *= @as(Vector3, @splat(scale));
+            }
+
+            c.b3Body_ApplyForce(body_id, b3.vecToB3(total_force), b3.vecToB3(wheel_origin), false);
         }
     }
 }
