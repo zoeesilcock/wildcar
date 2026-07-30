@@ -6,6 +6,7 @@ const c = @import("c");
 const math = @import("math");
 const renderer = @import("render/renderer.zig");
 const game = @import("root.zig");
+const b3 = @import("b3.zig");
 
 // Types.
 const State = game.State;
@@ -56,19 +57,20 @@ pub fn draw(state: *State, context: *FrameContext) void {
     state.internal.debug_box_count = 0;
 }
 
-pub fn drawCollisionShapes(state: *State, context: *FrameContext, entity: Entity) void {
+// TODO: This relies on all our colliders being boxes. This should be refactored to render more complex shapes based
+// on `b3Body_GetShapes()` once we use other shapes.
+pub fn drawCollisionShapes(state: *State, context: *FrameContext, entity: Entity, parent: ?Entity) void {
     if (state.internal.show_collision_bodies and entity.has_collider) {
-        const body_transform: c.b3Transform = c.b3Body_GetTransform(entity.body_id);
+        var body_transform: Transform = b3.b3ToTrans(c.b3Body_GetTransform(entity.body_id));
+
+        if (parent != null) {
+            body_transform = entity.transform.relativeTo(body_transform);
+        }
 
         renderer.drawLineCube(&state.renderer, context, .{
-            .position = .{ body_transform.p.x, body_transform.p.y, body_transform.p.z },
+            .position = body_transform.position,
             .scale = entity.transform.scale,
-            .rotation = .{
-                body_transform.q.v.x,
-                body_transform.q.v.y,
-                body_transform.q.v.z,
-                body_transform.q.s,
-            },
+            .rotation = body_transform.rotation,
         }, .{
             .color = if (entity.is_dynamic) .{ 0, 1, 0, 1 } else .{ 1, 1, 0, 1 },
         });

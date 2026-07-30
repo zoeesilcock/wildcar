@@ -616,10 +616,13 @@ pub export fn draw(state_ptr: GameLib.GameStatePtr) void {
                 renderer.drawCube(&state.renderer, &frame_context, child.transform.relativeTo(entity.transform), .{
                     .color = child.color,
                 });
+                if (INTERNAL) {
+                    debug_shapes.drawCollisionShapes(state, &frame_context, child, entity);
+                }
             }
 
             if (INTERNAL) {
-                debug_shapes.drawCollisionShapes(state, &frame_context, entity);
+                debug_shapes.drawCollisionShapes(state, &frame_context, entity, null);
             }
         }
         if (INTERNAL) debug_shapes.draw(state, &frame_context);
