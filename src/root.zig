@@ -274,7 +274,8 @@ pub export fn initFull3D(dependencies: GameLib.Dependencies.Full3D) GameLib.Game
         .loadFromFile("assets/cars/default.zon", state.allocator, state.dependencies.io.*),
     );
 
-    gltf.loadGLB("assets/models/cone.glb", state.allocator, state.dependencies.io.*) catch @panic("Failed to load model");
+    _ = gltf.loadGLB("assets/models/cone.glb", state.allocator, state.dependencies.io.*) catch
+        @panic("Failed to load model");
 
     return state;
 }
@@ -328,7 +329,8 @@ pub export fn reloaded(state_ptr: GameLib.GameStatePtr, imgui_context: ?*imgui.I
         .loadFromFile("assets/cars/default.zon", state.allocator, state.dependencies.io.*),
     );
 
-    gltf.loadGLB("assets/models/cone.glb", state.allocator, state.dependencies.io.*) catch @panic("Failed to load model");
+    _ = gltf.loadGLB("assets/models/cone.glb", state.allocator, state.dependencies.io.*) catch
+        @panic("Failed to load model");
 }
 
 pub export fn processInput(state_ptr: GameLib.GameStatePtr) bool {

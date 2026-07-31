@@ -1,3 +1,8 @@
+pub const WorldMesh = struct {
+    vertices: []const WorldVertex,
+    indices: []const u16,
+};
+
 pub const WorldVertex = struct {
     x: f32,
     y: f32,
