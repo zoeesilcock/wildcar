@@ -11,6 +11,7 @@ const renderer = @import("render/renderer.zig");
 const scene = @import("scene.zig");
 const car = @import("car.zig");
 const b3 = @import("b3.zig");
+const gltf = @import("gltf.zig");
 
 const INTERNAL: bool = @import("build_options").internal;
 pub const GRAVITY = 9.81;
@@ -146,7 +147,7 @@ pub const State = struct {
         inspect_game_state: bool = false,
         inspect_car_spec: bool = false,
         show_collision_bodies: bool = false,
-        show_suspension: bool = true,
+        show_suspension: bool = false,
         reset_scene_on_reload: bool = false,
         reset_camera_on_reload: bool = false,
     } else extern struct {} = undefined,
@@ -273,6 +274,8 @@ pub export fn initFull3D(dependencies: GameLib.Dependencies.Full3D) GameLib.Game
         .loadFromFile("assets/cars/default.zon", state.allocator, state.dependencies.io.*),
     );
 
+    gltf.loadGLB("assets/models/cone.glb", state.allocator, state.dependencies.io.*) catch @panic("Failed to load model");
+
     return state;
 }
 
@@ -324,6 +327,8 @@ pub export fn reloaded(state_ptr: GameLib.GameStatePtr, imgui_context: ?*imgui.I
         &state.entities.items[0],
         .loadFromFile("assets/cars/default.zon", state.allocator, state.dependencies.io.*),
     );
+
+    gltf.loadGLB("assets/models/cone.glb", state.allocator, state.dependencies.io.*) catch @panic("Failed to load model");
 }
 
 pub export fn processInput(state_ptr: GameLib.GameStatePtr) bool {
