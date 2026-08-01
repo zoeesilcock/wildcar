@@ -20,6 +20,11 @@ pub const ScreenVertex = struct {
     v: f32,
 };
 
+pub const CUBE: WorldMesh = .{
+    .vertices = CUBE_VERTICES,
+    .indices = CUBE_INDICES,
+};
+
 pub const CUBE_VERTICES: []const WorldVertex = &.{
     // -Z
     .{ .x = -1, .y = -1, .z = -1, .nx = 0, .ny = 0, .nz = -1 },

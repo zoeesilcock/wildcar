@@ -3,12 +3,14 @@ const c = @import("c");
 const flint = @import("flint");
 const math = @import("math");
 const game = @import("root.zig");
+const renderer = @import("render/renderer.zig");
 const car = @import("car.zig");
 const b3 = @import("b3.zig");
 
 // Types.
 const State = game.State;
 const Entity = game.Entity;
+const MeshId = renderer.MeshId;
 const Transform = math.Transform;
 const Vector3 = math.Vector3;
 const Color = math.Color;
@@ -22,6 +24,7 @@ const SceneEntity = struct {
     scale: Vector3,
     rotation: Vector3,
     color: Color = .{ 0.9, 0.3, 0.2, 1 },
+    mesh_id: MeshId = .Cube,
     has_collider: bool = true,
     is_dynamic: bool = false,
     children: []SceneEntity = &.{},
@@ -67,6 +70,7 @@ pub fn load(state: *State) void {
             .has_collider = item.has_collider,
             .is_dynamic = item.is_dynamic,
             .color = item.color,
+            .mesh_id = item.mesh_id,
             .children = state.allocator.alloc(Entity, item.children.len) catch @panic("Failed to allocate child entities"),
         };
 
@@ -80,6 +84,7 @@ pub fn load(state: *State) void {
                 .has_collider = child.has_collider,
                 .is_dynamic = child.is_dynamic,
                 .color = child.color,
+                .mesh_id = child.mesh_id,
             };
         }
     }

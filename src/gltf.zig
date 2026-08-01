@@ -207,9 +207,9 @@ fn extractBufferView(
     const component_count = accessor_type.getComponentCount();
     const data_type: AccessorDataType =
         @fromBackingInt(@intCast(accessor.object.get("componentType").?.integer));
+    // TODO: Include accessor.byteOffset if one is provided.
     const offset: usize = @intCast(buffer_view.object.get("byteOffset").?.integer);
-    const component_size: usize = data_type.getSize();
-    var stride: ?usize = data_type.getSize();
+    var stride: ?usize = data_type.getSize() * component_count;
     if (buffer_view.object.get("byteStride")) |byte_stride| {
         stride = @intCast(byte_stride.integer);
     }
@@ -238,66 +238,64 @@ fn extractBufferView(
 
     const result: []T = try allocator.alloc(T, count);
     for (result, 0..) |*out, index| {
-        for (0..component_count) |component| {
-            const bytes = bin_chunk.chunk_data[offset + index * stride.? + component * component_size ..];
-            switch (result_info) {
-                .array => |array_info| {
-                    if (array_info.len == 2) {
-                        switch (accessor_type) {
-                            .vec2 => {
-                                out.* = .{
-                                    @as(f32, @floatFromInt(std.mem.readInt(u32, bytes[0..4], .little))),
-                                    @as(f32, @floatFromInt(std.mem.readInt(u32, bytes[4..8], .little))),
-                                };
-                            },
-                            // TODO: .mat2 =>
-                            else => unreachable,
-                        }
-                    } else if (array_info.len == 3) {
-                        switch (accessor_type) {
-                            .vec3 => {
-                                out.* = .{
-                                    @as(f32, @floatFromInt(std.mem.readInt(u32, bytes[0..4], .little))),
-                                    @as(f32, @floatFromInt(std.mem.readInt(u32, bytes[4..8], .little))),
-                                    @as(f32, @floatFromInt(std.mem.readInt(u32, bytes[8..12], .little))),
-                                };
-                            },
-                            // TODO: .mat3 =>
-                            else => unreachable,
-                        }
-                    } else if (array_info.len == 4) {
-                        switch (accessor_type) {
-                            .vec4 => {
-                                out.* = .{
-                                    @as(f32, @floatFromInt(std.mem.readInt(u32, bytes[0..4], .little))),
-                                    @as(f32, @floatFromInt(std.mem.readInt(u32, bytes[4..8], .little))),
-                                    @as(f32, @floatFromInt(std.mem.readInt(u32, bytes[8..12], .little))),
-                                    @as(f32, @floatFromInt(std.mem.readInt(u32, bytes[12..16], .little))),
-                                };
-                            },
-                            // TODO: .mat4 =>
-                            else => unreachable,
-                        }
-                    }
-                },
-                .int => {
+        const bytes = bin_chunk.chunk_data[offset + index * stride.? ..];
+        switch (result_info) {
+            .array => |array_info| {
+                if (array_info.len == 2) {
                     switch (accessor_type) {
-                        .scalar => {
-                            out.* = std.mem.readInt(T, bytes[0..@sizeOf(T)], .little);
+                        .vec2 => {
+                            out.* = .{
+                                @as(f32, @bitCast(std.mem.readInt(u32, bytes[0..4], .little))),
+                                @as(f32, @bitCast(std.mem.readInt(u32, bytes[4..8], .little))),
+                            };
                         },
+                        // TODO: .mat2 =>
                         else => unreachable,
                     }
-                },
-                .float => {
+                } else if (array_info.len == 3) {
                     switch (accessor_type) {
-                        .scalar => {
-                            out.* = @floatFromInt(std.mem.readInt(u32, bytes[0..4], .little));
+                        .vec3 => {
+                            out.* = .{
+                                @as(f32, @bitCast(std.mem.readInt(u32, bytes[0..4], .little))),
+                                @as(f32, @bitCast(std.mem.readInt(u32, bytes[4..8], .little))),
+                                @as(f32, @bitCast(std.mem.readInt(u32, bytes[8..12], .little))),
+                            };
                         },
+                        // TODO: .mat3 =>
                         else => unreachable,
                     }
-                },
-                else => unreachable,
-            }
+                } else if (array_info.len == 4) {
+                    switch (accessor_type) {
+                        .vec4 => {
+                            out.* = .{
+                                @as(f32, @bitCast(std.mem.readInt(u32, bytes[0..4], .little))),
+                                @as(f32, @bitCast(std.mem.readInt(u32, bytes[4..8], .little))),
+                                @as(f32, @bitCast(std.mem.readInt(u32, bytes[8..12], .little))),
+                                @as(f32, @bitCast(std.mem.readInt(u32, bytes[12..16], .little))),
+                            };
+                        },
+                        // TODO: .mat4 =>
+                        else => unreachable,
+                    }
+                }
+            },
+            .int => {
+                switch (accessor_type) {
+                    .scalar => {
+                        out.* = std.mem.readInt(T, bytes[0..@sizeOf(T)], .little);
+                    },
+                    else => unreachable,
+                }
+            },
+            .float => {
+                switch (accessor_type) {
+                    .scalar => {
+                        out.* = @bitCast(std.mem.readInt(u32, bytes[0..4], .little));
+                    },
+                    else => unreachable,
+                }
+            },
+            else => unreachable,
         }
     }
 

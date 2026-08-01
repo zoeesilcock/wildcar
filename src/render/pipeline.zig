@@ -4,6 +4,7 @@ const sdl = flint.sdl.c;
 const renderer = @import("renderer.zig");
 const buffer = @import("buffer.zig");
 const mesh = @import("mesh.zig");
+const gltf = @import("../gltf.zig");
 
 const INTERNAL: bool = @import("build_options").internal;
 
@@ -260,7 +261,12 @@ pub fn init(context: *RendererContext, allocator: std.mem.Allocator, io: std.Io)
     }
 
     context.quad_mesh = buffer.upload(context, ScreenVertex, mesh.QUAD_VERTICES, mesh.QUAD_INDICES);
-    context.cube_mesh = buffer.upload(context, WorldVertex, mesh.CUBE_VERTICES, mesh.CUBE_INDICES);
+
+    context.cube_mesh = buffer.uploadWorldMesh(context, mesh.CUBE);
+
+    if ((gltf.loadGLB("assets/models/cone.glb", allocator, io) catch @panic("Failed to load model"))) |meshes| {
+        context.cone_mesh = buffer.uploadWorldMesh(context, meshes[0]);
+    }
 }
 
 pub fn deinit(context: *RendererContext) void {

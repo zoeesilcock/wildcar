@@ -11,7 +11,6 @@ const renderer = @import("render/renderer.zig");
 const scene = @import("scene.zig");
 const car = @import("car.zig");
 const b3 = @import("b3.zig");
-const gltf = @import("gltf.zig");
 
 const INTERNAL: bool = @import("build_options").internal;
 pub const GRAVITY = 9.81;
@@ -23,6 +22,7 @@ pub const std_options: std.Options = .{
 // Types.
 const GameLib = flint.GameLib;
 const FPSWindow = flint.internal.FPSWindow;
+const MeshId = renderer.MeshId;
 const Vector2 = math.Vector2;
 const Vector3 = math.Vector3;
 const Transform = math.Transform;
@@ -219,6 +219,7 @@ const Input = struct {
 pub const Entity = struct {
     transform: Transform = .{},
     color: Color = .{ 0.9, 0.3, 0.2, 1 },
+    mesh_id: MeshId = .Cube,
     body_id: c.b3BodyId = undefined,
     has_collider: bool = true,
     is_dynamic: bool = false,
@@ -274,9 +275,6 @@ pub export fn initFull3D(dependencies: GameLib.Dependencies.Full3D) GameLib.Game
         .loadFromFile("assets/cars/default.zon", state.allocator, state.dependencies.io.*),
     );
 
-    _ = gltf.loadGLB("assets/models/cone.glb", state.allocator, state.dependencies.io.*) catch
-        @panic("Failed to load model");
-
     return state;
 }
 
@@ -328,9 +326,6 @@ pub export fn reloaded(state_ptr: GameLib.GameStatePtr, imgui_context: ?*imgui.I
         &state.entities.items[0],
         .loadFromFile("assets/cars/default.zon", state.allocator, state.dependencies.io.*),
     );
-
-    _ = gltf.loadGLB("assets/models/cone.glb", state.allocator, state.dependencies.io.*) catch
-        @panic("Failed to load model");
 }
 
 pub export fn processInput(state_ptr: GameLib.GameStatePtr) bool {
@@ -580,10 +575,15 @@ pub export fn draw(state_ptr: GameLib.GameStatePtr) void {
     renderer.beginShadowPass(&state.renderer, &frame_context);
     {
         for (state.entities.items) |entity| {
-            renderer.drawCubeShadow(&state.renderer, &frame_context, entity.transform);
+            renderer.drawMeshShadow(&state.renderer, &frame_context, entity.transform, entity.mesh_id);
 
             for (entity.children) |child| {
-                renderer.drawCubeShadow(&state.renderer, &frame_context, child.transform.relativeTo(entity.transform));
+                renderer.drawMeshShadow(
+                    &state.renderer,
+                    &frame_context,
+                    child.transform.relativeTo(entity.transform),
+                    child.mesh_id,
+                );
             }
         }
     }
@@ -615,14 +615,22 @@ pub export fn draw(state_ptr: GameLib.GameStatePtr) void {
         );
 
         for (state.entities.items) |entity| {
-            renderer.drawCube(&state.renderer, &frame_context, entity.transform, .{
-                .color = entity.color,
-            });
+            renderer.drawMesh(
+                &state.renderer,
+                &frame_context,
+                entity.transform,
+                entity.mesh_id,
+                .{ .color = entity.color },
+            );
 
             for (entity.children) |child| {
-                renderer.drawCube(&state.renderer, &frame_context, child.transform.relativeTo(entity.transform), .{
-                    .color = child.color,
-                });
+                renderer.drawMesh(
+                    &state.renderer,
+                    &frame_context,
+                    child.transform.relativeTo(entity.transform),
+                    entity.mesh_id,
+                    .{ .color = child.color },
+                );
                 if (INTERNAL) {
                     debug_shapes.drawCollisionShapes(state, &frame_context, child, entity);
                 }

@@ -9,11 +9,17 @@ const pipeline = @import("pipeline.zig");
 // Types.
 pub const Camera = @import("camera.zig").Camera;
 const MeshBuffer = @import("buffer.zig").MeshBuffer;
+const WorldMesh = @import("mesh.zig").WorldMesh;
 const Transform = math.Transform;
 const Color = math.Color;
 const Vector3 = math.Vector3;
 const Settings = flint.GameLib.Settings;
 const Matrix4x4 = math.Matrix4x4;
+
+pub const MeshId = enum(u32) {
+    Cube,
+    Cone,
+};
 
 pub const RendererContext = struct {
     // Device.
@@ -43,6 +49,14 @@ pub const RendererContext = struct {
 
     quad_mesh: MeshBuffer = undefined,
     cube_mesh: MeshBuffer = undefined,
+    cone_mesh: MeshBuffer = undefined,
+
+    pub fn getMeshBuffer(self: *RendererContext, mesh_id: MeshId) *MeshBuffer {
+        return switch (mesh_id) {
+            .Cube => &self.cube_mesh,
+            .Cone => &self.cone_mesh,
+        };
+    }
 };
 
 pub const FrameContext = struct {
@@ -208,16 +222,6 @@ fn bindFillPipeline(context: *RendererContext, frame: *FrameContext) void {
         frame.bound_pipeline = context.fill_pipeline;
     }
 
-    if (frame.bound_mesh != &context.cube_mesh) {
-        sdl.SDL_BindGPUVertexBuffers(frame.render_pass, 0, &.{ .buffer = context.cube_mesh.vertex_buffer, .offset = 0 }, 1);
-        sdl.SDL_BindGPUIndexBuffer(
-            frame.render_pass,
-            &.{ .buffer = context.cube_mesh.index_buffer, .offset = 0 },
-            sdl.SDL_GPU_INDEXELEMENTSIZE_16BIT,
-        );
-        frame.bound_mesh = &context.cube_mesh;
-    }
-
     sdl.SDL_BindGPUFragmentSamplers(
         frame.render_pass,
         0,
@@ -234,32 +238,12 @@ fn bindLinePipeline(context: *RendererContext, frame: *FrameContext) void {
         sdl.SDL_BindGPUGraphicsPipeline(frame.render_pass, context.line_pipeline);
         frame.bound_pipeline = context.line_pipeline;
     }
-
-    if (frame.bound_mesh != &context.cube_mesh) {
-        sdl.SDL_BindGPUVertexBuffers(frame.render_pass, 0, &.{ .buffer = context.cube_mesh.vertex_buffer, .offset = 0 }, 1);
-        sdl.SDL_BindGPUIndexBuffer(
-            frame.render_pass,
-            &.{ .buffer = context.cube_mesh.index_buffer, .offset = 0 },
-            sdl.SDL_GPU_INDEXELEMENTSIZE_16BIT,
-        );
-        frame.bound_mesh = &context.cube_mesh;
-    }
 }
 
 fn bindDebugShapePipeline(context: *RendererContext, frame: *FrameContext) void {
     if (frame.bound_pipeline != context.debug_shape_pipeline) {
         sdl.SDL_BindGPUGraphicsPipeline(frame.render_pass, context.debug_shape_pipeline);
         frame.bound_pipeline = context.debug_shape_pipeline;
-    }
-
-    if (frame.bound_mesh != &context.cube_mesh) {
-        sdl.SDL_BindGPUVertexBuffers(frame.render_pass, 0, &.{ .buffer = context.cube_mesh.vertex_buffer, .offset = 0 }, 1);
-        sdl.SDL_BindGPUIndexBuffer(
-            frame.render_pass,
-            &.{ .buffer = context.cube_mesh.index_buffer, .offset = 0 },
-            sdl.SDL_GPU_INDEXELEMENTSIZE_16BIT,
-        );
-        frame.bound_mesh = &context.cube_mesh;
     }
 }
 
@@ -268,15 +252,17 @@ fn bindShadowPipeline(context: *RendererContext, frame: *FrameContext) void {
         sdl.SDL_BindGPUGraphicsPipeline(frame.render_pass, context.shadow_pipeline);
         frame.bound_pipeline = context.shadow_pipeline;
     }
+}
 
-    if (frame.bound_mesh != &context.cube_mesh) {
-        sdl.SDL_BindGPUVertexBuffers(frame.render_pass, 0, &.{ .buffer = context.cube_mesh.vertex_buffer, .offset = 0 }, 1);
+fn bindMeshBuffer(frame: *FrameContext, mesh_buffer: *MeshBuffer) void {
+    if (frame.bound_mesh != mesh_buffer) {
+        sdl.SDL_BindGPUVertexBuffers(frame.render_pass, 0, &.{ .buffer = mesh_buffer.vertex_buffer, .offset = 0 }, 1);
         sdl.SDL_BindGPUIndexBuffer(
             frame.render_pass,
-            &.{ .buffer = context.cube_mesh.index_buffer, .offset = 0 },
+            &.{ .buffer = mesh_buffer.index_buffer, .offset = 0 },
             sdl.SDL_GPU_INDEXELEMENTSIZE_16BIT,
         );
-        frame.bound_mesh = &context.cube_mesh;
+        frame.bound_mesh = mesh_buffer;
     }
 }
 
@@ -341,16 +327,6 @@ pub fn submitLighting(context: *RendererContext, frame: *FrameContext, fragment_
     sdl.SDL_PushGPUFragmentUniformData(frame.command_buffer, 1, &fragment_uniforms, @sizeOf(LightFragmentUniforms));
 }
 
-pub fn drawCube(
-    context: *RendererContext,
-    frame: *FrameContext,
-    transform: Transform,
-    fragment_uniforms: LambertFragmentUniforms,
-) void {
-    bindFillPipeline(context, frame);
-    drawCubeInternal(context, frame, transform, fragment_uniforms);
-}
-
 pub fn drawLineCube(
     context: *RendererContext,
     frame: *FrameContext,
@@ -377,6 +353,8 @@ fn drawCubeInternal(
     transform: Transform,
     fragment_uniforms: LambertFragmentUniforms,
 ) void {
+    bindMeshBuffer(frame, &context.cube_mesh);
+
     const model_matrix: Matrix4x4 = Camera.calculateModelMatrix(transform);
     const mvp = frame.view_projection.multiply(model_matrix);
     const vertex_uniforms: LambertVertexUniforms = .{ .mvp = mvp, .model = model_matrix };
@@ -387,19 +365,45 @@ fn drawCubeInternal(
     sdl.SDL_DrawGPUIndexedPrimitives(frame.render_pass, context.cube_mesh.index_count, 1, 0, 0, 0);
 }
 
-pub fn drawCubeShadow(
+pub fn drawMesh(
     context: *RendererContext,
     frame: *FrameContext,
     transform: Transform,
+    mesh_id: MeshId,
+    fragment_uniforms: LambertFragmentUniforms,
+) void {
+    bindFillPipeline(context, frame);
+
+    const mesh_buffer: *MeshBuffer = context.getMeshBuffer(mesh_id);
+    bindMeshBuffer(frame, mesh_buffer);
+
+    const model_matrix: Matrix4x4 = Camera.calculateModelMatrix(transform);
+    const mvp = frame.view_projection.multiply(model_matrix);
+    const vertex_uniforms: LambertVertexUniforms = .{ .mvp = mvp, .model = model_matrix };
+    sdl.SDL_PushGPUVertexUniformData(frame.command_buffer, 0, &vertex_uniforms, @sizeOf(LambertVertexUniforms));
+
+    sdl.SDL_PushGPUFragmentUniformData(frame.command_buffer, 0, &fragment_uniforms, @sizeOf(LambertFragmentUniforms));
+
+    sdl.SDL_DrawGPUIndexedPrimitives(frame.render_pass, mesh_buffer.index_count, 1, 0, 0, 0);
+}
+
+pub fn drawMeshShadow(
+    context: *RendererContext,
+    frame: *FrameContext,
+    transform: Transform,
+    mesh_id: MeshId,
 ) void {
     bindShadowPipeline(context, frame);
+
+    const mesh_buffer: *MeshBuffer = context.getMeshBuffer(mesh_id);
+    bindMeshBuffer(frame, mesh_buffer);
 
     const model_matrix: Matrix4x4 = Camera.calculateModelMatrix(transform);
     const light_mvp = frame.light_view_projection.multiply(model_matrix);
     const vertex_uniforms: ShadowVertexUniforms = .{ .light_mvp = light_mvp };
     sdl.SDL_PushGPUVertexUniformData(frame.command_buffer, 0, &vertex_uniforms, @sizeOf(ShadowVertexUniforms));
 
-    sdl.SDL_DrawGPUIndexedPrimitives(frame.render_pass, context.cube_mesh.index_count, 1, 0, 0, 0);
+    sdl.SDL_DrawGPUIndexedPrimitives(frame.render_pass, mesh_buffer.index_count, 1, 0, 0, 0);
 }
 
 pub fn compositeToSwapchain(

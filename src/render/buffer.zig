@@ -5,6 +5,8 @@ const sdl_utils = flint.sdl;
 const renderer = @import("renderer.zig");
 
 // Types.
+const WorldMesh = @import("mesh.zig").WorldMesh;
+const WorldVertex = @import("mesh.zig").WorldVertex;
 const RendererContext = renderer.RendererContext;
 
 pub const MeshBuffer = struct {
@@ -19,6 +21,10 @@ fn createBuffer(context: *RendererContext, usage_flags: sdl.SDL_GPUBufferUsageFl
         .size = size,
     };
     return sdl.SDL_CreateGPUBuffer(context.gpu_device, &buffer_create_info);
+}
+
+pub fn uploadWorldMesh(context: *RendererContext, mesh: WorldMesh) MeshBuffer {
+    return upload(context, WorldVertex, mesh.vertices, mesh.indices);
 }
 
 pub fn upload(context: *RendererContext, VertexType: type, vertices: []const VertexType, indices: []const u16) MeshBuffer {
