@@ -2,7 +2,7 @@
     .items = .{
         // Car.
         .{
-            .position = .{ -28, 5, 5 },
+            .position = .{ -14, 2.5, 2.5 },
             .scale = .{ 4, 1, 2 },
             .rotation = .{ 0, 0, 0 },
             .color = .{ 0.9, 0.3, 0.2, 1 },
@@ -10,28 +10,28 @@
             .children = .{
                 // Wheels.
                 .{
-                    .position = .{ -2, -1, 2 },
+                    .position = .{ -1, -0.5, 1 },
                     .scale = .{ 0.66, 0.66, 0.3 },
                     .rotation = .{ 0, 0, 0 },
                     .color = .{ 0.1, 0.1, 0.2, 1 },
                     .has_collider = false,
                 },
                 .{
-                    .position = .{ 2, -1, 2 },
+                    .position = .{ 1, -0.5, 1 },
                     .scale = .{ 0.66, 0.66, 0.3 },
                     .rotation = .{ 0, 0, 0 },
                     .color = .{ 0.1, 0.1, 0.2, 1 },
                     .has_collider = false,
                 },
                 .{
-                    .position = .{ -2, -1, -2 },
+                    .position = .{ -1, -0.5, -1 },
                     .scale = .{ 0.66, 0.66, 0.3 },
                     .rotation = .{ 0, 0, 0 },
                     .color = .{ 0.1, 0.1, 0.2, 1 },
                     .has_collider = false,
                 },
                 .{
-                    .position = .{ 2, -1, -2 },
+                    .position = .{ 1, -0.5, -1 },
                     .scale = .{ 0.66, 0.66, 0.3 },
                     .rotation = .{ 0, 0, 0 },
                     .color = .{ 0.1, 0.1, 0.2, 1 },
@@ -39,13 +39,13 @@
                 },
                 // Cab.
                 .{
-                    .position = .{ 0.5, 1.5, 0 },
+                    .position = .{ 0.25, 0.75, 0 },
                     .scale = .{ 1.25, 1, 2 },
                     .rotation = .{ 0, 0, 0 },
                     .color = .{ 0.9, 0.3, 0.2, 1 },
                 },
                 .{
-                    .position = .{ -1.47, 0.99, 0 },
+                    .position = .{ -0.735, 0.495, 0 },
                     .scale = .{ 1.5, 0.75, 2 },
                     .rotation = .{ 0, 0, 0.66 },
                     .color = .{ 0.9, 0.3, 0.2, 1 },
@@ -54,13 +54,13 @@
         },
         // Platforms.
         .{
-            .position = .{ 0, -0.1, 0 },
+            .position = .{ 0, -0.05, 0 },
             .scale = .{ 1000, 0.1, 1000 },
             .rotation = .{ 0, 0, 0 },
             .color = .{ 0.1, 0.1, 0.15, 1 },
         },
         .{
-            .position = .{ -40, 1, 0 },
+            .position = .{ -20, 1, 0 },
             .scale = .{ 10, 0.1, 10 },
             .rotation = .{ 0, 0, 0 },
             .color = .{ 0.5, 0.5, 0.6, 1 },
@@ -73,20 +73,28 @@
         },
         // Ramps.
         .{
-            .position = .{ -25, 0.75, -5 },
+            .position = .{ -12.25, 0.3, -2.5 },
             .scale = .{ 6, 0.2, 3 },
-            .rotation = .{ 0, 0, -0.2 },
+            .rotation = .{ 0, 0, -0.25 },
             .color = .{ 0.7, 0.7, 0.8, 1 },
         },
         .{
-            .position = .{ -25, 1.5, 5 },
+            .position = .{ -12.5, 0.75, 2.5 },
             .scale = .{ 6, 0.2, 3 },
             .rotation = .{ 0, 0, -0.4 },
             .color = .{ 0.7, 0.7, 0.8, 1 },
         },
+        // Unit cube.
+        .{
+            .position = .{ 0, 0.25, 0 },
+            .scale = .{ 1, 1, 1 },
+            .rotation = .{ 0, 0, 0 },
+            .color = .{ 0.8, 0.2, 0.2, 1 },
+            .has_collider = false,
+        },
         // Cones.
         .{
-            .position = .{ 0, 0, 0 },
+            .position = .{ 0, 0, 1 },
             .scale = .{ 2, 2, 2 },
             .rotation = .{ 0, 0, 0 },
             .color = .{ 0.8, 0.6, 0.2, 1 },
@@ -94,7 +102,7 @@
             .mesh_id = .Cone,
         },
         .{
-            .position = .{ -20, 0, -6 },
+            .position = .{ -10, 0, -3.25 },
             .scale = .{ 2, 2, 2 },
             .rotation = .{ 0, 0, 0 },
             .color = .{ 0.8, 0.6, 0.2, 1 },
@@ -102,7 +110,7 @@
             .mesh_id = .Cone,
         },
         .{
-            .position = .{ -20, 0, -4 },
+            .position = .{ -10, 0, -1.75 },
             .scale = .{ 2, 2, 2 },
             .rotation = .{ 0, 0, 0 },
             .color = .{ 0.8, 0.6, 0.2, 1 },
@@ -110,7 +118,7 @@
             .mesh_id = .Cone,
         },
         .{
-            .position = .{ -20, 0, 4 },
+            .position = .{ -10, 0, 1.5 },
             .scale = .{ 2, 2, 2 },
             .rotation = .{ 0, 0, 0 },
             .color = .{ 0.8, 0.6, 0.2, 1 },
@@ -118,7 +126,7 @@
             .mesh_id = .Cone,
         },
         .{
-            .position = .{ -20, 0, 5 },
+            .position = .{ -10, 0, 2.5 },
             .scale = .{ 2, 2, 2 },
             .rotation = .{ 0, 0, 0 },
             .color = .{ 0.8, 0.6, 0.2, 1 },
@@ -126,7 +134,7 @@
             .mesh_id = .Cone,
         },
         .{
-            .position = .{ -20, 0, 6 },
+            .position = .{ -10, 0, 3.5 },
             .scale = .{ 2, 2, 2 },
             .rotation = .{ 0, 0, 0 },
             .color = .{ 0.8, 0.6, 0.2, 1 },

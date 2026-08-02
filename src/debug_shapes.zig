@@ -42,7 +42,7 @@ pub fn addRaycast(
     t = .{
         .position = origin + direction * @as(Vector3, @splat(hit_distance / 2)),
         .rotation = rotation,
-        .scale = .{ 0.01, hit_distance / 2, 0.01 },
+        .scale = .{ 0.01, hit_distance, 0.01 },
     };
     addBox(state, .{ .transform = t, .color = .{ 1, 1, 0, 1 } });
 }

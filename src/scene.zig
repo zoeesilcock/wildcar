@@ -151,15 +151,15 @@ fn spawnBodyForEntity(entity: *const Entity, parent_entity: ?*const Entity, worl
 
     const box: c.b3BoxHull = if (parent_entity == null)
         c.b3MakeBoxHull(
-            entity.transform.scale[X],
-            entity.transform.scale[Y],
-            entity.transform.scale[Z],
+            entity.transform.scale[X] / 2,
+            entity.transform.scale[Y] / 2,
+            entity.transform.scale[Z] / 2,
         )
     else
         c.b3MakeTransformedBoxHull(
-            entity.transform.scale[X],
-            entity.transform.scale[Y],
-            entity.transform.scale[Z],
+            entity.transform.scale[X] / 2,
+            entity.transform.scale[Y] / 2,
+            entity.transform.scale[Z] / 2,
             .{
                 .p = b3.vecToB3(entity.transform.position),
                 .q = b3.quatToB3(entity.transform.rotation),

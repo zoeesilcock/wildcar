@@ -45,7 +45,7 @@ pub const Camera = struct {
         var self: Camera = .{
             .position = .{ -1.17, 5, 11.45 },
             .target = .{ -20, 3, 5 },
-            .radius = 20,
+            .radius = 10,
             .azimuth_angle = 0.33,
             .polar_angle = 0.1,
             .mode = .Orbit,
@@ -70,11 +70,11 @@ pub const Camera = struct {
     }
 
     pub fn cycleMode(self: *Camera) void {
-        var mode: u32 = @intFromEnum(self.mode) + 1;
+        var mode: u32 = @backingInt(self.mode) + 1;
         if (mode >= @typeInfo(Mode).@"enum".field_names.len) {
             mode = 0;
         }
-        self.mode = @enumFromInt(mode);
+        self.mode = @fromBackingInt(@intCast(mode));
     }
 
     pub fn orbit(self: *Camera, amount: Vector2) void {

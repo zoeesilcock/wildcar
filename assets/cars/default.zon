@@ -1,21 +1,21 @@
 // Car measurements:
 //
-// Chassi size: 4x2
-// Wheel radius: 0.66
+// Chassis size: 4x2
+// Wheel radius: 0.33
 // Wheel positions:
-// * X: 2/-2
-// * Z: 2/-2
+// * X: 1/-1
+// * Z: 1/-1
 .{
     .mass = 1000,
     .engine_power = 75,
     .max_acceleration = 8,
     .max_braking_deceleration = 10,
-    .wheel_radius = 0.66,
+    .wheel_radius = 0.33,
     .drive_wheels = .{ 1, 3 },
     .steer_wheels = .{ 0, 2 },
     .max_steering_angle = 0.5,
     .lateral_stiffness = 1000,
     .friction_coefficient = 1.0,
-    .suspension_parked_compression = 0.3,
+    .suspension_parked_compression = 0.15,
     .suspension_damping_ratio = 0.3,
 }
