@@ -255,7 +255,7 @@ fn extractBufferView(
         .int => {
             std.debug.assert(component_count == 1);
             std.debug.assert(accessor_type == .scalar);
-            std.debug.assert(data_type.getSize() == @sizeOf(T));
+            std.debug.assert(data_type.getSize() >= @sizeOf(T));
             data_type.assertType(T);
         },
         .float => {
