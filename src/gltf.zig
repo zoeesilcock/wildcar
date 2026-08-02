@@ -122,63 +122,88 @@ pub fn loadGLB(path: []const u8, allocator: std.mem.Allocator, io: std.Io) !?[]c
         const accessors = json.value.object.get("accessors").?;
         const buffer_views = json.value.object.get("bufferViews").?;
 
+        var mesh_index: u32 = 0;
         if (json.value.object.get("meshes")) |meshes| {
-            result = try allocator.alloc(WorldMesh, meshes.array.items.len);
-
-            for (meshes.array.items, 0..) |mesh, i| {
+            var mesh_count: u32 = 0;
+            for (meshes.array.items) |mesh| {
                 if (mesh.object.get("primitives")) |primitives| {
                     for (primitives.array.items) |primitive| {
-                        // Positions.
-                        const positions_index: usize =
-                            @intCast(primitive.object.get("attributes").?.object.get("POSITION").?.integer);
-                        var accessor = accessors.array.items[positions_index];
-                        var buffer_view_index: usize = @intCast(accessor.object.get("bufferView").?.integer);
-                        var buffer_view = buffer_views.array.items[buffer_view_index];
-                        const positions =
-                            try extractBufferView([3]f32, accessor, buffer_view, bin_chunk, allocator);
-
-                        // Normals.
-                        const normals_index: usize =
-                            @intCast(primitive.object.get("attributes").?.object.get("NORMAL").?.integer);
-                        accessor = accessors.array.items[normals_index];
-                        buffer_view_index = @intCast(accessor.object.get("bufferView").?.integer);
-                        buffer_view = buffer_views.array.items[buffer_view_index];
-                        const normals =
-                            try extractBufferView([3]f32, accessor, buffer_view, bin_chunk, allocator);
-
-                        // UVs.
-                        const uvs_index: usize =
-                            @intCast(primitive.object.get("attributes").?.object.get("TEXCOORD_0").?.integer);
-                        accessor = accessors.array.items[uvs_index];
-                        buffer_view_index = @intCast(accessor.object.get("bufferView").?.integer);
-                        buffer_view = buffer_views.array.items[buffer_view_index];
-                        const uvs =
-                            try extractBufferView([2]f32, accessor, buffer_view, bin_chunk, allocator);
-                        _ = uvs;
-
-                        // Indices.
-                        const indices_index: usize = @intCast(primitive.object.get("indices").?.integer);
-                        accessor = accessors.array.items[indices_index];
-                        buffer_view_index = @intCast(accessor.object.get("bufferView").?.integer);
-                        buffer_view = buffer_views.array.items[buffer_view_index];
-                        const indices = try extractBufferView(u16, accessor, buffer_view, bin_chunk, allocator);
-
-                        // Build the result.
-                        var vertices: []WorldVertex = try allocator.alloc(WorldVertex, positions.len);
-                        for (positions, normals, 0..) |position, normal, vertex_index| {
-                            vertices[vertex_index] = .{
-                                .x = position[0],
-                                .y = position[1],
-                                .z = position[2],
-                                .nx = normal[0],
-                                .ny = normal[1],
-                                .nz = normal[2],
-                            };
+                        var mode: u32 = 4;
+                        if (primitive.object.get("mode")) |mode_value| {
+                            mode = @intCast(mode_value.integer);
                         }
-                        result.?[i] = .{
-                            .vertices = vertices,
-                            .indices = indices,
-                        };
+
+                        if (mode == 4) {
+                            mesh_count += 1;
+                        }
+                    }
+                }
+            }
+            result = try allocator.alloc(WorldMesh, mesh_count);
+
+            for (meshes.array.items) |mesh| {
+                if (mesh.object.get("primitives")) |primitives| {
+                    for (primitives.array.items) |primitive| {
+                        var mode: u32 = 4;
+                        if (primitive.object.get("mode")) |mode_value| {
+                            mode = @intCast(mode_value.integer);
+                        }
+
+                        if (mode == 4) {
+                            // Positions.
+                            const positions_index: usize =
+                                @intCast(primitive.object.get("attributes").?.object.get("POSITION").?.integer);
+                            var accessor = accessors.array.items[positions_index];
+                            var buffer_view_index: usize = @intCast(accessor.object.get("bufferView").?.integer);
+                            var buffer_view = buffer_views.array.items[buffer_view_index];
+                            const positions =
+                                try extractBufferView([3]f32, accessor, buffer_view, bin_chunk, allocator);
+
+                            // Normals.
+                            const normals_index: usize =
+                                @intCast(primitive.object.get("attributes").?.object.get("NORMAL").?.integer);
+                            accessor = accessors.array.items[normals_index];
+                            buffer_view_index = @intCast(accessor.object.get("bufferView").?.integer);
+                            buffer_view = buffer_views.array.items[buffer_view_index];
+                            const normals =
+                                try extractBufferView([3]f32, accessor, buffer_view, bin_chunk, allocator);
+
+                            // UVs.
+                            const uvs_index: usize =
+                                @intCast(primitive.object.get("attributes").?.object.get("TEXCOORD_0").?.integer);
+                            accessor = accessors.array.items[uvs_index];
+                            buffer_view_index = @intCast(accessor.object.get("bufferView").?.integer);
+                            buffer_view = buffer_views.array.items[buffer_view_index];
+                            const uvs =
+                                try extractBufferView([2]f32, accessor, buffer_view, bin_chunk, allocator);
+                            _ = uvs;
+
+                            // Indices.
+                            const indices_index: usize = @intCast(primitive.object.get("indices").?.integer);
+                            accessor = accessors.array.items[indices_index];
+                            buffer_view_index = @intCast(accessor.object.get("bufferView").?.integer);
+                            buffer_view = buffer_views.array.items[buffer_view_index];
+                            const indices = try extractBufferView(u16, accessor, buffer_view, bin_chunk, allocator);
+
+                            // Build the result.
+                            var vertices: []WorldVertex = try allocator.alloc(WorldVertex, positions.len);
+                            for (positions, normals, 0..) |position, normal, vertex_index| {
+                                vertices[vertex_index] = .{
+                                    .x = position[0],
+                                    .y = position[1],
+                                    .z = position[2],
+                                    .nx = normal[0],
+                                    .ny = normal[1],
+                                    .nz = normal[2],
+                                };
+                            }
+
+                            result.?[mesh_index] = .{
+                                .vertices = vertices,
+                                .indices = indices,
+                            };
+                            mesh_index += 1;
+                        }
                     }
                 }
             }
