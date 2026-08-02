@@ -280,7 +280,6 @@ fn extractBufferView(
                                 @as(f32, @bitCast(std.mem.readInt(u32, bytes[4..8], .little))),
                             };
                         },
-                        // TODO: .mat2 =>
                         else => unreachable,
                     }
                 } else if (array_info.len == 3) {
@@ -292,7 +291,6 @@ fn extractBufferView(
                                 @as(f32, @bitCast(std.mem.readInt(u32, bytes[8..12], .little))),
                             };
                         },
-                        // TODO: .mat3 =>
                         else => unreachable,
                     }
                 } else if (array_info.len == 4) {
@@ -305,7 +303,55 @@ fn extractBufferView(
                                 @as(f32, @bitCast(std.mem.readInt(u32, bytes[12..16], .little))),
                             };
                         },
-                        // TODO: .mat4 =>
+                        .mat2 => {
+                            out.* = .{
+                                @as(f32, @bitCast(std.mem.readInt(u32, bytes[0..4], .little))),
+                                @as(f32, @bitCast(std.mem.readInt(u32, bytes[4..8], .little))),
+                                @as(f32, @bitCast(std.mem.readInt(u32, bytes[8..12], .little))),
+                                @as(f32, @bitCast(std.mem.readInt(u32, bytes[12..16], .little))),
+                            };
+                        },
+                        else => unreachable,
+                    }
+                } else if (array_info.len == 9) {
+                    switch (accessor_type) {
+                        .mat3 => {
+                            out.* = .{
+                                @as(f32, @bitCast(std.mem.readInt(u32, bytes[0..4], .little))),
+                                @as(f32, @bitCast(std.mem.readInt(u32, bytes[4..8], .little))),
+                                @as(f32, @bitCast(std.mem.readInt(u32, bytes[8..12], .little))),
+                                @as(f32, @bitCast(std.mem.readInt(u32, bytes[12..16], .little))),
+                                @as(f32, @bitCast(std.mem.readInt(u32, bytes[16..20], .little))),
+                                @as(f32, @bitCast(std.mem.readInt(u32, bytes[20..24], .little))),
+                                @as(f32, @bitCast(std.mem.readInt(u32, bytes[24..28], .little))),
+                                @as(f32, @bitCast(std.mem.readInt(u32, bytes[28..32], .little))),
+                                @as(f32, @bitCast(std.mem.readInt(u32, bytes[32..36], .little))),
+                            };
+                        },
+                        else => unreachable,
+                    }
+                } else if (array_info.len == 16) {
+                    switch (accessor_type) {
+                        .mat3 => {
+                            out.* = .{
+                                @as(f32, @bitCast(std.mem.readInt(u32, bytes[0..4], .little))),
+                                @as(f32, @bitCast(std.mem.readInt(u32, bytes[4..8], .little))),
+                                @as(f32, @bitCast(std.mem.readInt(u32, bytes[8..12], .little))),
+                                @as(f32, @bitCast(std.mem.readInt(u32, bytes[12..16], .little))),
+                                @as(f32, @bitCast(std.mem.readInt(u32, bytes[16..20], .little))),
+                                @as(f32, @bitCast(std.mem.readInt(u32, bytes[20..24], .little))),
+                                @as(f32, @bitCast(std.mem.readInt(u32, bytes[24..28], .little))),
+                                @as(f32, @bitCast(std.mem.readInt(u32, bytes[28..32], .little))),
+                                @as(f32, @bitCast(std.mem.readInt(u32, bytes[32..36], .little))),
+                                @as(f32, @bitCast(std.mem.readInt(u32, bytes[36..40], .little))),
+                                @as(f32, @bitCast(std.mem.readInt(u32, bytes[40..44], .little))),
+                                @as(f32, @bitCast(std.mem.readInt(u32, bytes[44..48], .little))),
+                                @as(f32, @bitCast(std.mem.readInt(u32, bytes[48..52], .little))),
+                                @as(f32, @bitCast(std.mem.readInt(u32, bytes[52..56], .little))),
+                                @as(f32, @bitCast(std.mem.readInt(u32, bytes[56..60], .little))),
+                                @as(f32, @bitCast(std.mem.readInt(u32, bytes[60..64], .little))),
+                            };
+                        },
                         else => unreachable,
                     }
                 }
