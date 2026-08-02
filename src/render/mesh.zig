@@ -1,6 +1,21 @@
+const math = @import("math");
+
+// Types.
+const Transform = math.Transform;
+
 pub const WorldMesh = struct {
     vertices: []const WorldVertex,
     indices: []const u16,
+    colliders: []const CollisionShape = &.{},
+};
+
+const CollisionShapeType = enum(u32) {
+    Box,
+};
+
+pub const CollisionShape = struct {
+    shape: CollisionShapeType = .Box,
+    transform: Transform,
 };
 
 pub const WorldVertex = struct {
@@ -23,6 +38,12 @@ pub const ScreenVertex = struct {
 pub const CUBE: WorldMesh = .{
     .vertices = CUBE_VERTICES,
     .indices = CUBE_INDICES,
+    .colliders = &.{
+        .{
+            .shape = .Box,
+            .transform = .{},
+        },
+    },
 };
 
 pub const CUBE_VERTICES: []const WorldVertex = &.{

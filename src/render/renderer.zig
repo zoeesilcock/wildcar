@@ -47,14 +47,16 @@ pub const RendererContext = struct {
     sky_pipeline: *sdl.SDL_GPUGraphicsPipeline = undefined,
     shadow_pipeline: *sdl.SDL_GPUGraphicsPipeline = undefined,
 
-    quad_mesh: MeshBuffer = undefined,
-    cube_mesh: MeshBuffer = undefined,
-    cone_mesh: MeshBuffer = undefined,
+    quad_mesh_buffer: MeshBuffer = undefined,
+    cube_mesh_buffer: MeshBuffer = undefined,
+    cone_mesh_buffer: MeshBuffer = undefined,
+
+    meshes: std.AutoHashMap(MeshId, *const WorldMesh) = undefined,
 
     pub fn getMeshBuffer(self: *RendererContext, mesh_id: MeshId) *MeshBuffer {
         return switch (mesh_id) {
-            .Cube => &self.cube_mesh,
-            .Cone => &self.cone_mesh,
+            .Cube => &self.cube_mesh_buffer,
+            .Cone => &self.cone_mesh_buffer,
         };
     }
 };
@@ -278,11 +280,11 @@ fn bindScreenPipeline(context: *RendererContext, frame: *FrameContext) void {
         sdl.SDL_BindGPUGraphicsPipeline(frame.render_pass, context.screen_pipeline);
     }
 
-    if (frame.bound_mesh != &context.quad_mesh) {
-        sdl.SDL_BindGPUVertexBuffers(frame.render_pass, 0, &.{ .buffer = context.quad_mesh.vertex_buffer, .offset = 0 }, 1);
+    if (frame.bound_mesh != &context.quad_mesh_buffer) {
+        sdl.SDL_BindGPUVertexBuffers(frame.render_pass, 0, &.{ .buffer = context.quad_mesh_buffer.vertex_buffer, .offset = 0 }, 1);
         sdl.SDL_BindGPUIndexBuffer(
             frame.render_pass,
-            &.{ .buffer = context.quad_mesh.index_buffer, .offset = 0 },
+            &.{ .buffer = context.quad_mesh_buffer.index_buffer, .offset = 0 },
             sdl.SDL_GPU_INDEXELEMENTSIZE_16BIT,
         );
         frame.bound_pipeline = context.screen_pipeline;
@@ -353,7 +355,7 @@ fn drawCubeInternal(
     transform: Transform,
     fragment_uniforms: LambertFragmentUniforms,
 ) void {
-    bindMeshBuffer(frame, &context.cube_mesh);
+    bindMeshBuffer(frame, &context.cube_mesh_buffer);
 
     const model_matrix: Matrix4x4 = Camera.calculateModelMatrix(transform);
     const mvp = frame.view_projection.multiply(model_matrix);
@@ -362,7 +364,7 @@ fn drawCubeInternal(
 
     sdl.SDL_PushGPUFragmentUniformData(frame.command_buffer, 0, &fragment_uniforms, @sizeOf(LambertFragmentUniforms));
 
-    sdl.SDL_DrawGPUIndexedPrimitives(frame.render_pass, context.cube_mesh.index_count, 1, 0, 0, 0);
+    sdl.SDL_DrawGPUIndexedPrimitives(frame.render_pass, context.cube_mesh_buffer.index_count, 1, 0, 0, 0);
 }
 
 pub fn drawMesh(
@@ -433,7 +435,7 @@ pub fn compositeToSwapchain(
     );
     sdl.SDL_PushGPUFragmentUniformData(frame.command_buffer, 0, &fragment_uniforms, @sizeOf(ScreenFragmentUniforms));
     bindScreenPipeline(context, frame);
-    sdl.SDL_DrawGPUIndexedPrimitives(frame.render_pass, context.quad_mesh.index_count, 1, 0, 0, 0);
+    sdl.SDL_DrawGPUIndexedPrimitives(frame.render_pass, context.quad_mesh_buffer.index_count, 1, 0, 0, 0);
     sdl.SDL_EndGPURenderPass(frame.render_pass);
 
     return swapchain_texture;

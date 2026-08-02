@@ -57,22 +57,25 @@ pub fn draw(state: *State, context: *FrameContext) void {
     state.internal.debug_box_count = 0;
 }
 
-// TODO: This relies on all our colliders being boxes. This should be refactored to render more complex shapes based
-// on `b3Body_GetShapes()` once we use other shapes.
 pub fn drawCollisionShapes(state: *State, context: *FrameContext, entity: Entity, parent: ?Entity) void {
     if (state.internal.show_collision_bodies and entity.has_collider) {
-        var body_transform: Transform = b3.b3ToTrans(c.b3Body_GetTransform(entity.body_id));
+        if (state.renderer.meshes.get(entity.mesh_id)) |mesh| {
+            for (mesh.colliders) |collision_shape| {
+                var transform = collision_shape.transform.relativeTo(entity.transform);
 
-        if (parent != null) {
-            body_transform = entity.transform.relativeTo(body_transform);
+                if (parent != null) {
+                    transform = transform.relativeTo(parent.?.transform);
+                }
+
+                transform.scale = entity.transform.scale * collision_shape.transform.scale;
+                switch (collision_shape.shape) {
+                    .Box => {
+                        renderer.drawLineCube(&state.renderer, context, transform, .{
+                            .color = if (entity.is_dynamic) .{ 0, 1, 0, 1 } else .{ 1, 1, 0, 1 },
+                        });
+                    },
+                }
+            }
         }
-
-        renderer.drawLineCube(&state.renderer, context, .{
-            .position = body_transform.position,
-            .scale = entity.transform.scale,
-            .rotation = body_transform.rotation,
-        }, .{
-            .color = if (entity.is_dynamic) .{ 0, 1, 0, 1 } else .{ 1, 1, 0, 1 },
-        });
     }
 }

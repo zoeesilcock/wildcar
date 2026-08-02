@@ -27,7 +27,12 @@ pub fn uploadWorldMesh(context: *RendererContext, mesh: WorldMesh) MeshBuffer {
     return upload(context, WorldVertex, mesh.vertices, mesh.indices);
 }
 
-pub fn upload(context: *RendererContext, VertexType: type, vertices: []const VertexType, indices: []const u16) MeshBuffer {
+pub fn upload(
+    context: *RendererContext,
+    VertexType: type,
+    vertices: []const VertexType,
+    indices: []const u16,
+) MeshBuffer {
     const vertex_buffer_size: u32 = @intCast(vertices.len * @sizeOf(VertexType));
     const vertex_buffer = sdl_utils.panicIfNull(
         createBuffer(context, sdl.SDL_GPU_BUFFERUSAGE_VERTEX, vertex_buffer_size),

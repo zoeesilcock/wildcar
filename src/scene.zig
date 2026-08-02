@@ -11,6 +11,7 @@ const b3 = @import("b3.zig");
 const State = game.State;
 const Entity = game.Entity;
 const MeshId = renderer.MeshId;
+const WorldMesh = @import("render/mesh.zig").WorldMesh;
 const Transform = math.Transform;
 const Vector3 = math.Vector3;
 const Color = math.Color;
@@ -110,18 +111,33 @@ pub fn initBox3D(state: *State) void {
 
     for (state.entities.items) |*entity| {
         if (entity.has_collider) {
-            entity.body_id = spawnBodyForEntity(entity, null, state.world_id);
+            entity.body_id = spawnBodyForEntity(
+                entity,
+                null,
+                state.renderer.meshes.get(entity.mesh_id),
+                state.world_id,
+            );
         }
 
         for (entity.children) |*child_entity| {
             if (child_entity.has_collider) {
-                child_entity.body_id = spawnBodyForEntity(child_entity, entity, state.world_id);
+                child_entity.body_id = spawnBodyForEntity(
+                    child_entity,
+                    entity,
+                    state.renderer.meshes.get(entity.mesh_id),
+                    state.world_id,
+                );
             }
         }
     }
 }
 
-fn spawnBodyForEntity(entity: *const Entity, parent_entity: ?*const Entity, world_id: c.b3WorldId) c.b3BodyId {
+fn spawnBodyForEntity(
+    entity: *const Entity,
+    parent_entity: ?*const Entity,
+    opt_mesh: ?*const WorldMesh,
+    world_id: c.b3WorldId,
+) c.b3BodyId {
     var body_id: c.b3BodyId = undefined;
 
     if (parent_entity) |parent| {
@@ -149,28 +165,38 @@ fn spawnBodyForEntity(entity: *const Entity, parent_entity: ?*const Entity, worl
         body_id = c.b3CreateBody(world_id, &body_def);
     }
 
-    const box: c.b3BoxHull = if (parent_entity == null)
-        c.b3MakeBoxHull(
-            entity.transform.scale[X] / 2,
-            entity.transform.scale[Y] / 2,
-            entity.transform.scale[Z] / 2,
-        )
-    else
-        c.b3MakeTransformedBoxHull(
-            entity.transform.scale[X] / 2,
-            entity.transform.scale[Y] / 2,
-            entity.transform.scale[Z] / 2,
-            .{
-                .p = b3.vecToB3(entity.transform.position),
-                .q = b3.quatToB3(entity.transform.rotation),
-            },
-        );
+    if (opt_mesh) |mesh| {
+        for (mesh.colliders) |collision_shape| {
+            var transform = collision_shape.transform.relativeTo(entity.transform);
+            transform.scale = entity.transform.scale * collision_shape.transform.scale;
+            switch (collision_shape.shape) {
+                .Box => {
+                    const box: c.b3BoxHull = if (parent_entity == null)
+                        c.b3MakeBoxHull(
+                            transform.scale[X] / 2,
+                            transform.scale[Y] / 2,
+                            transform.scale[Z] / 2,
+                        )
+                    else
+                        c.b3MakeTransformedBoxHull(
+                            transform.scale[X] / 2,
+                            transform.scale[Y] / 2,
+                            transform.scale[Z] / 2,
+                            .{
+                                .p = b3.vecToB3(transform.position),
+                                .q = b3.quatToB3(transform.rotation),
+                            },
+                        );
 
-    var shape_def: c.b3ShapeDef = c.b3DefaultShapeDef();
-    shape_def.density = 1;
-    shape_def.baseMaterial.friction = 0.3;
+                    var shape_def: c.b3ShapeDef = c.b3DefaultShapeDef();
+                    shape_def.density = 1;
+                    shape_def.baseMaterial.friction = 0.3;
 
-    _ = c.b3CreateHullShape(body_id, &shape_def, &box.base);
+                    _ = c.b3CreateHullShape(body_id, &shape_def, &box.base);
+                },
+            }
+        }
+    }
 
     return body_id;
 }

@@ -260,12 +260,16 @@ pub fn init(context: *RendererContext, allocator: std.mem.Allocator, io: std.Io)
         @panic("Failed to create shadow pipeline.");
     }
 
-    context.quad_mesh = buffer.upload(context, ScreenVertex, mesh.QUAD_VERTICES, mesh.QUAD_INDICES);
+    context.meshes = .init(allocator);
 
-    context.cube_mesh = buffer.uploadWorldMesh(context, mesh.CUBE);
+    context.quad_mesh_buffer = buffer.upload(context, ScreenVertex, mesh.QUAD_VERTICES, mesh.QUAD_INDICES);
+
+    context.cube_mesh_buffer = buffer.uploadWorldMesh(context, mesh.CUBE);
+    context.meshes.put(.Cube, &mesh.CUBE) catch @panic("OOM");
 
     if ((gltf.loadGLB("assets/models/cone.glb", allocator, io) catch @panic("Failed to load model"))) |meshes| {
-        context.cone_mesh = buffer.uploadWorldMesh(context, meshes[0]);
+        context.cone_mesh_buffer = buffer.uploadWorldMesh(context, meshes[0]);
+        context.meshes.put(.Cone, &meshes[0]) catch @panic("OOM");
     }
 }
 
@@ -276,10 +280,14 @@ pub fn deinit(context: *RendererContext) void {
     sdl.SDL_ReleaseGPUGraphicsPipeline(context.gpu_device, context.sky_pipeline);
     sdl.SDL_ReleaseGPUGraphicsPipeline(context.gpu_device, context.shadow_pipeline);
 
-    sdl.SDL_ReleaseGPUBuffer(context.gpu_device, context.cube_mesh.vertex_buffer);
-    sdl.SDL_ReleaseGPUBuffer(context.gpu_device, context.cube_mesh.index_buffer);
-    sdl.SDL_ReleaseGPUBuffer(context.gpu_device, context.quad_mesh.vertex_buffer);
-    sdl.SDL_ReleaseGPUBuffer(context.gpu_device, context.quad_mesh.index_buffer);
+    sdl.SDL_ReleaseGPUBuffer(context.gpu_device, context.quad_mesh_buffer.vertex_buffer);
+    sdl.SDL_ReleaseGPUBuffer(context.gpu_device, context.quad_mesh_buffer.index_buffer);
+    sdl.SDL_ReleaseGPUBuffer(context.gpu_device, context.cube_mesh_buffer.vertex_buffer);
+    sdl.SDL_ReleaseGPUBuffer(context.gpu_device, context.cube_mesh_buffer.index_buffer);
+    sdl.SDL_ReleaseGPUBuffer(context.gpu_device, context.cone_mesh_buffer.vertex_buffer);
+    sdl.SDL_ReleaseGPUBuffer(context.gpu_device, context.cone_mesh_buffer.index_buffer);
+
+    context.meshes.deinit();
 }
 
 fn loadShader(
