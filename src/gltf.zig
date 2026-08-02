@@ -226,19 +226,25 @@ fn extractBufferView(
     bin_chunk: Chunk,
     allocator: std.mem.Allocator,
 ) ![]T {
-    const result_info = @typeInfo(T);
     const count: usize = @intCast(accessor.object.get("count").?.integer);
+    var offset: usize = 0;
+    if (buffer_view.object.get("byteOffset")) |buffer_view_offset| {
+        offset += @intCast(buffer_view_offset.integer);
+    }
+    if (accessor.object.get("byteOffset")) |accessor_offset| {
+        offset += @intCast(accessor_offset.integer);
+    }
+
     const accessor_type: AccessorType = .fromSlice(accessor.object.get("type").?.string);
     const component_count = accessor_type.getComponentCount();
     const data_type: AccessorDataType =
         @fromBackingInt(@intCast(accessor.object.get("componentType").?.integer));
-    // TODO: Include accessor.byteOffset if one is provided.
-    const offset: usize = @intCast(buffer_view.object.get("byteOffset").?.integer);
     var stride: ?usize = data_type.getSize() * component_count;
     if (buffer_view.object.get("byteStride")) |byte_stride| {
         stride = @intCast(byte_stride.integer);
     }
 
+    const result_info = @typeInfo(T);
     switch (result_info) {
         .array => |array_info| {
             std.debug.assert(component_count == array_info.len);
