@@ -110,9 +110,10 @@ pub fn loadGLB(path: []const u8, allocator: std.mem.Allocator, io: std.Io) !?[]c
     const magic: u32 = try reader.takeInt(u32, .little);
     const version: u32 = try reader.takeInt(u32, .little);
     const length: u32 = try reader.takeInt(u32, .little);
+    _ = length;
 
     std.debug.assert(magic == fourCC("glTF"));
-    std.log.info("magic: {d}, version: {d}, length: {d}", .{ magic, version, length });
+    std.debug.assert(version == 2);
 
     // Read the data chunks.
     const json_chunk = try parseChunk(reader, .json);
@@ -124,7 +125,11 @@ pub fn loadGLB(path: []const u8, allocator: std.mem.Allocator, io: std.Io) !?[]c
     var diagnostics = std.json.Scanner.Diagnostics{};
     scanner.enableDiagnostics(&diagnostics);
 
-    var result: ?[]WorldMesh = null;
+    var meshes = std.ArrayList(WorldMesh).initCapacity(allocator, 1) catch @panic("OOM");
+    defer meshes.deinit(allocator);
+    var colliders = std.ArrayList(CollisionShape).initCapacity(allocator, 10) catch @panic("OOM");
+    defer colliders.deinit(allocator);
+
     if (std.json.parseFromTokenSource(std.json.Value, allocator, &scanner, .{})) |json| {
         defer json.deinit();
 
@@ -141,61 +146,19 @@ pub fn loadGLB(path: []const u8, allocator: std.mem.Allocator, io: std.Io) !?[]c
         const accessors = json.value.object.get("accessors").?;
         const buffer_views = json.value.object.get("bufferViews").?;
 
-        var result_mesh_index: u32 = 0;
-        var result_collider_index: u32 = 0;
-        if (json.value.object.get("meshes")) |meshes| {
-            var mesh_count: u32 = 0;
-            var collider_count: u32 = 0;
-            for (meshes.array.items, 0..) |mesh, mesh_index| {
-                var is_collider: bool = false;
-                if (collider_mesh_indices) |indices| {
-                    for (indices.array.items) |index| {
-                        if (index.integer == mesh_index) {
-                            is_collider = true;
-                            break;
-                        }
-                    }
-                }
-
-                if (mesh.object.get("primitives")) |primitives| {
-                    for (primitives.array.items) |primitive| {
-                        var mode: u32 = 4;
-                        if (primitive.object.get("mode")) |mode_value| {
-                            mode = @intCast(mode_value.integer);
-                        }
-
-                        if (mode == 4) {
-                            if (is_collider) {
-                                collider_count += 1;
-                            } else {
-                                mesh_count += 1;
-                            }
-                        }
+        for (nodes.array.items, 0..) |node, node_index| {
+            var is_collider: bool = false;
+            if (collider_mesh_indices) |indices| {
+                for (indices.array.items) |index| {
+                    if (index.integer == node_index) {
+                        is_collider = true;
+                        break;
                     }
                 }
             }
-            result = try allocator.alloc(WorldMesh, mesh_count);
-            var colliders = try allocator.alloc(CollisionShape, collider_count);
 
-            for (meshes.array.items, 0..) |mesh, mesh_index| {
-                var is_collider: bool = false;
-                var collider_node: ?std.json.Value = null;
-                if (collider_mesh_indices) |indices| {
-                    for (indices.array.items) |index| {
-                        if (index.integer == mesh_index) {
-                            is_collider = true;
-                            for (nodes.array.items) |node| {
-                                if (node.object.get("mesh")) |node_mesh_index| {
-                                    if (mesh_index == @as(usize, @intCast(node_mesh_index.integer))) {
-                                        collider_node = node;
-                                        break;
-                                    }
-                                }
-                            }
-                            break;
-                        }
-                    }
-                }
+            if (node.object.get("mesh")) |mesh_index| {
+                const mesh = json.value.object.get("meshes").?.array.items[@intCast(mesh_index.integer)];
 
                 if (mesh.object.get("primitives")) |primitives| {
                     for (primitives.array.items) |primitive| {
@@ -244,25 +207,22 @@ pub fn loadGLB(path: []const u8, allocator: std.mem.Allocator, io: std.Io) !?[]c
                             var vertices: []WorldVertex = try allocator.alloc(WorldVertex, positions.len);
                             for (positions, normals, 0..) |position, normal, vertex_index| {
                                 vertices[vertex_index] = .{
-                                    .x = position[0],
-                                    .y = position[1],
-                                    .z = position[2],
-                                    .nx = normal[0],
-                                    .ny = normal[1],
-                                    .nz = normal[2],
+                                    .x = position[X],
+                                    .y = position[Y],
+                                    .z = position[Z],
+                                    .nx = normal[X],
+                                    .ny = normal[Y],
+                                    .nz = normal[Z],
                                 };
                             }
 
                             if (is_collider) {
-                                colliders[result_collider_index] = extractCollider(collider_node.?, vertices);
-                                result_collider_index += 1;
+                                colliders.append(allocator, extractCollider(node, vertices)) catch @panic("OOM");
                             } else {
-                                result.?[result_mesh_index] = .{
+                                meshes.append(allocator, .{
                                     .vertices = vertices,
                                     .indices = indices,
-                                    .colliders = colliders,
-                                };
-                                result_mesh_index += 1;
+                                }) catch @panic("OOM");
                             }
                         }
                     }
@@ -277,7 +237,12 @@ pub fn loadGLB(path: []const u8, allocator: std.mem.Allocator, io: std.Io) !?[]c
         });
     }
 
-    return result;
+    const collider_slice = colliders.toOwnedSlice(allocator) catch @panic("OOM");
+    for (meshes.items) |*mesh| {
+        mesh.colliders = collider_slice;
+    }
+
+    return meshes.toOwnedSlice(allocator) catch @panic("OOM");
 }
 
 fn extractCollider(node: std.json.Value, vertices: []WorldVertex) CollisionShape {
