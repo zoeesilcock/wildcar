@@ -9,7 +9,7 @@ pub const WorldMesh = struct {
     colliders: []const CollisionShape = &.{},
 };
 
-const CollisionShapeType = enum(u32) {
+pub const CollisionShapeType = enum(u32) {
     Box,
 };
 

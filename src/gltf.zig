@@ -1,9 +1,18 @@
 const std = @import("std");
 const flint = @import("flint");
+const math = @import("math");
 
 // Types.
 const WorldMesh = @import("render/mesh.zig").WorldMesh;
+const CollisionShape = @import("render/mesh.zig").CollisionShape;
+const CollisionShapeType = @import("render/mesh.zig").CollisionShapeType;
 const WorldVertex = @import("render/mesh.zig").WorldVertex;
+const Transform = math.Transform;
+const Vector3 = math.Vector3;
+const X = math.X;
+const Y = math.Y;
+const Z = math.Z;
+const W = math.W;
 
 const Chunk = struct {
     chunk_length: u32,
@@ -119,13 +128,35 @@ pub fn loadGLB(path: []const u8, allocator: std.mem.Allocator, io: std.Io) !?[]c
     if (std.json.parseFromTokenSource(std.json.Value, allocator, &scanner, .{})) |json| {
         defer json.deinit();
 
+        const nodes = json.value.object.get("nodes").?;
+        var collider_mesh_indices: ?std.json.Value = null;
+        for (nodes.array.items) |node| {
+            if (node.object.get("name")) |node_name| {
+                if (std.mem.eql(u8, node_name.string, "colliders")) {
+                    collider_mesh_indices = node.object.get("children");
+                }
+            }
+        }
+
         const accessors = json.value.object.get("accessors").?;
         const buffer_views = json.value.object.get("bufferViews").?;
 
-        var mesh_index: u32 = 0;
+        var result_mesh_index: u32 = 0;
+        var result_collider_index: u32 = 0;
         if (json.value.object.get("meshes")) |meshes| {
             var mesh_count: u32 = 0;
-            for (meshes.array.items) |mesh| {
+            var collider_count: u32 = 0;
+            for (meshes.array.items, 0..) |mesh, mesh_index| {
+                var is_collider: bool = false;
+                if (collider_mesh_indices) |indices| {
+                    for (indices.array.items) |index| {
+                        if (index.integer == mesh_index) {
+                            is_collider = true;
+                            break;
+                        }
+                    }
+                }
+
                 if (mesh.object.get("primitives")) |primitives| {
                     for (primitives.array.items) |primitive| {
                         var mode: u32 = 4;
@@ -134,14 +165,38 @@ pub fn loadGLB(path: []const u8, allocator: std.mem.Allocator, io: std.Io) !?[]c
                         }
 
                         if (mode == 4) {
-                            mesh_count += 1;
+                            if (is_collider) {
+                                collider_count += 1;
+                            } else {
+                                mesh_count += 1;
+                            }
                         }
                     }
                 }
             }
             result = try allocator.alloc(WorldMesh, mesh_count);
+            var colliders = try allocator.alloc(CollisionShape, collider_count);
 
-            for (meshes.array.items) |mesh| {
+            for (meshes.array.items, 0..) |mesh, mesh_index| {
+                var is_collider: bool = false;
+                var collider_node: ?std.json.Value = null;
+                if (collider_mesh_indices) |indices| {
+                    for (indices.array.items) |index| {
+                        if (index.integer == mesh_index) {
+                            is_collider = true;
+                            for (nodes.array.items) |node| {
+                                if (node.object.get("mesh")) |node_mesh_index| {
+                                    if (mesh_index == @as(usize, @intCast(node_mesh_index.integer))) {
+                                        collider_node = node;
+                                        break;
+                                    }
+                                }
+                            }
+                            break;
+                        }
+                    }
+                }
+
                 if (mesh.object.get("primitives")) |primitives| {
                     for (primitives.array.items) |primitive| {
                         var mode: u32 = 4;
@@ -198,11 +253,17 @@ pub fn loadGLB(path: []const u8, allocator: std.mem.Allocator, io: std.Io) !?[]c
                                 };
                             }
 
-                            result.?[mesh_index] = .{
-                                .vertices = vertices,
-                                .indices = indices,
-                            };
-                            mesh_index += 1;
+                            if (is_collider) {
+                                colliders[result_collider_index] = extractCollider(collider_node.?, vertices);
+                                result_collider_index += 1;
+                            } else {
+                                result.?[result_mesh_index] = .{
+                                    .vertices = vertices,
+                                    .indices = indices,
+                                    .colliders = colliders,
+                                };
+                                result_mesh_index += 1;
+                            }
                         }
                     }
                 }
@@ -217,6 +278,62 @@ pub fn loadGLB(path: []const u8, allocator: std.mem.Allocator, io: std.Io) !?[]c
     }
 
     return result;
+}
+
+fn extractCollider(node: std.json.Value, vertices: []WorldVertex) CollisionShape {
+    // Identify the colision shape type.
+    const name: []const u8 = node.object.get("name").?.string;
+    var name_parts = std.mem.splitScalar(u8, name, '.');
+    var shape_type: CollisionShapeType = .Box;
+    while (name_parts.next()) |part| {
+        if (std.mem.eql(u8, part, "box")) {
+            shape_type = .Box;
+            break;
+        }
+    }
+
+    // Extract transform from node.
+    var transform: Transform = .{};
+    if (node.object.get("translation")) |position| {
+        transform.position = .{
+            @floatCast(position.array.items[X].float),
+            @floatCast(position.array.items[Y].float),
+            @floatCast(position.array.items[Z].float),
+        };
+    }
+    if (node.object.get("scale")) |scale| {
+        transform.scale = .{
+            @floatCast(scale.array.items[X].float),
+            @floatCast(scale.array.items[Y].float),
+            @floatCast(scale.array.items[Z].float),
+        };
+    }
+    if (node.object.get("rotation")) |rotation| {
+        transform.rotation = .{
+            @floatCast(rotation.array.items[X].float),
+            @floatCast(rotation.array.items[Y].float),
+            @floatCast(rotation.array.items[Z].float),
+            @floatCast(rotation.array.items[W].float),
+        };
+    }
+    // TODO: Handle node.matrix here if we ever see that situation.
+
+    // Calculate extents of box.
+    var min: Vector3 = .{ vertices[0].x, vertices[0].y, vertices[0].z };
+    var max: Vector3 = .{ vertices[0].x, vertices[0].y, vertices[0].z };
+    for (vertices) |vertex| {
+        min = @min(min, Vector3{ vertex.x, vertex.y, vertex.z });
+        max = @max(max, Vector3{ vertex.x, vertex.y, vertex.z });
+    }
+    transform.scale *= max - min;
+
+    // Adjust so the box is centered on its position.
+    transform.position += (min + max) * @as(Vector3, @splat(0.5));
+
+    return .{
+        .shape = shape_type,
+        .transform = transform,
+    };
 }
 
 fn extractBufferView(

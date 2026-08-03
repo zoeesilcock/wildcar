@@ -167,26 +167,25 @@ fn spawnBodyForEntity(
 
     if (opt_mesh) |mesh| {
         for (mesh.colliders) |collision_shape| {
-            var transform = collision_shape.transform.relativeTo(entity.transform);
-            transform.scale = entity.transform.scale * collision_shape.transform.scale;
+            var transform: Transform = collision_shape.transform;
+            transform.position *= entity.transform.scale;
+            transform.scale *= entity.transform.scale;
+
+            if (parent_entity != null) {
+                transform = transform.relativeTo(entity.transform);
+            }
+
             switch (collision_shape.shape) {
                 .Box => {
-                    const box: c.b3BoxHull = if (parent_entity == null)
-                        c.b3MakeBoxHull(
-                            transform.scale[X] / 2,
-                            transform.scale[Y] / 2,
-                            transform.scale[Z] / 2,
-                        )
-                    else
-                        c.b3MakeTransformedBoxHull(
-                            transform.scale[X] / 2,
-                            transform.scale[Y] / 2,
-                            transform.scale[Z] / 2,
-                            .{
-                                .p = b3.vecToB3(transform.position),
-                                .q = b3.quatToB3(transform.rotation),
-                            },
-                        );
+                    const box: c.b3BoxHull = c.b3MakeTransformedBoxHull(
+                        transform.scale[X] / 2,
+                        transform.scale[Y] / 2,
+                        transform.scale[Z] / 2,
+                        .{
+                            .p = b3.vecToB3(transform.position),
+                            .q = b3.quatToB3(transform.rotation),
+                        },
+                    );
 
                     var shape_def: c.b3ShapeDef = c.b3DefaultShapeDef();
                     shape_def.density = 1;

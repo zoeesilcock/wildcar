@@ -61,7 +61,10 @@ pub fn drawCollisionShapes(state: *State, context: *FrameContext, entity: Entity
     if (state.internal.show_collision_bodies and entity.has_collider) {
         if (state.renderer.meshes.get(entity.mesh_id)) |mesh| {
             for (mesh.colliders) |collision_shape| {
-                var transform = collision_shape.transform.relativeTo(entity.transform);
+                var transform: Transform = collision_shape.transform;
+                transform.position *= entity.transform.scale;
+                transform.scale *= entity.transform.scale;
+                transform = transform.relativeTo(entity.transform);
 
                 if (parent != null) {
                     transform = transform.relativeTo(parent.?.transform);
