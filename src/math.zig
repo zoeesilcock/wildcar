@@ -30,6 +30,13 @@ pub const Transform = struct {
             .rotation = multiplyQuaternion(parent.rotation, self.rotation),
         };
     }
+
+    pub fn toScaledMeshSpace(self: Transform, scale: Vector3) Transform {
+        var transform: Transform = self;
+        transform.position *= scale;
+        transform.scale *= scale;
+        return transform;
+    }
 };
 
 pub fn multiplyQuaternion(a: Quaternion, b: Quaternion) Quaternion {

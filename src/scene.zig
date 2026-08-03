@@ -167,9 +167,7 @@ fn spawnBodyForEntity(
 
     if (opt_mesh) |mesh| {
         for (mesh.colliders) |collision_shape| {
-            var transform: Transform = collision_shape.transform;
-            transform.position *= entity.transform.scale;
-            transform.scale *= entity.transform.scale;
+            var transform: Transform = collision_shape.transform.toScaledMeshSpace(entity.transform.scale);
 
             if (parent_entity != null) {
                 transform = transform.relativeTo(entity.transform);
