@@ -22,7 +22,7 @@ pub const std_options: std.Options = .{
 // Types.
 const GameLib = flint.GameLib;
 const FPSWindow = flint.internal.FPSWindow;
-const MeshId = renderer.MeshId;
+const ModelId = renderer.ModelId;
 const Vector2 = math.Vector2;
 const Vector3 = math.Vector3;
 const Transform = math.Transform;
@@ -219,7 +219,7 @@ const Input = struct {
 pub const Entity = struct {
     transform: Transform = .{},
     color: Color = .{ 0.9, 0.3, 0.2, 1 },
-    mesh_id: MeshId = .Cube,
+    model_id: ModelId = .Cube,
     body_id: c.b3BodyId = undefined,
     has_collider: bool = true,
     is_dynamic: bool = false,
@@ -575,14 +575,14 @@ pub export fn draw(state_ptr: GameLib.GameStatePtr) void {
     renderer.beginShadowPass(&state.renderer, &frame_context);
     {
         for (state.entities.items) |entity| {
-            renderer.drawMeshShadow(&state.renderer, &frame_context, entity.transform, entity.mesh_id);
+            renderer.drawMeshShadow(&state.renderer, &frame_context, entity.transform, entity.model_id);
 
             for (entity.children) |child| {
                 renderer.drawMeshShadow(
                     &state.renderer,
                     &frame_context,
                     child.transform.relativeTo(entity.transform),
-                    child.mesh_id,
+                    child.model_id,
                 );
             }
         }
@@ -619,7 +619,7 @@ pub export fn draw(state_ptr: GameLib.GameStatePtr) void {
                 &state.renderer,
                 &frame_context,
                 entity.transform,
-                entity.mesh_id,
+                entity.model_id,
                 .{ .color = entity.color },
             );
 
@@ -628,7 +628,7 @@ pub export fn draw(state_ptr: GameLib.GameStatePtr) void {
                     &state.renderer,
                     &frame_context,
                     child.transform.relativeTo(entity.transform),
-                    entity.mesh_id,
+                    entity.model_id,
                     .{ .color = child.color },
                 );
                 if (INTERNAL) {

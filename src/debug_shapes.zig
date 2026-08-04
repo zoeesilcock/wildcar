@@ -59,8 +59,8 @@ pub fn draw(state: *State, context: *FrameContext) void {
 
 pub fn drawCollisionShapes(state: *State, context: *FrameContext, entity: Entity, parent: ?Entity) void {
     if (state.internal.show_collision_bodies and entity.has_collider) {
-        if (state.renderer.meshes.get(entity.mesh_id)) |mesh| {
-            for (mesh.colliders) |collision_shape| {
+        if (state.renderer.models.get(entity.model_id)) |modl| {
+            for (modl.colliders) |collision_shape| {
                 var transform: Transform = collision_shape.transform.toScaledMeshSpace(entity.transform.scale);
                 transform = transform.relativeTo(entity.transform);
 

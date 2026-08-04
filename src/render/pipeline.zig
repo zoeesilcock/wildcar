@@ -7,6 +7,7 @@ const mesh = @import("mesh.zig");
 const gltf = @import("../gltf.zig");
 
 const INTERNAL: bool = @import("build_options").internal;
+const CUBE_MODEL = @import("model.zig").CUBE;
 
 // Types.
 const RendererContext = renderer.RendererContext;
@@ -260,16 +261,16 @@ pub fn init(context: *RendererContext, allocator: std.mem.Allocator, io: std.Io)
         @panic("Failed to create shadow pipeline.");
     }
 
-    context.meshes = .init(allocator);
+    context.models = .init(allocator);
 
     context.quad_mesh_buffer = buffer.upload(context, ScreenVertex, mesh.QUAD_VERTICES, mesh.QUAD_INDICES);
 
-    context.cube_mesh_buffer = buffer.uploadWorldMesh(context, mesh.CUBE);
-    context.meshes.put(.Cube, &mesh.CUBE) catch @panic("OOM");
+    context.cube_mesh_buffer = buffer.uploadWorldMesh(context, CUBE_MODEL.mesh);
+    context.models.put(.Cube, &CUBE_MODEL) catch @panic("OOM");
 
-    if ((gltf.loadGLB("assets/models/cone.glb", allocator, io) catch @panic("Failed to load model"))) |meshes| {
-        context.cone_mesh_buffer = buffer.uploadWorldMesh(context, meshes[0]);
-        context.meshes.put(.Cone, &meshes[0]) catch @panic("OOM");
+    if ((gltf.loadGLB("assets/models/cone.glb", allocator, io) catch @panic("Failed to load model"))) |models| {
+        context.cone_mesh_buffer = buffer.uploadWorldMesh(context, models[0].mesh);
+        context.models.put(.Cone, &models[0]) catch @panic("OOM");
     }
 }
 
@@ -287,7 +288,7 @@ pub fn deinit(context: *RendererContext) void {
     sdl.SDL_ReleaseGPUBuffer(context.gpu_device, context.cone_mesh_buffer.vertex_buffer);
     sdl.SDL_ReleaseGPUBuffer(context.gpu_device, context.cone_mesh_buffer.index_buffer);
 
-    context.meshes.deinit();
+    context.models.deinit();
 }
 
 fn loadShader(

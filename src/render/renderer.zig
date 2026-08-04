@@ -9,14 +9,14 @@ const pipeline = @import("pipeline.zig");
 // Types.
 pub const Camera = @import("camera.zig").Camera;
 const MeshBuffer = @import("buffer.zig").MeshBuffer;
-const WorldMesh = @import("mesh.zig").WorldMesh;
+const Model = @import("model.zig").Model;
 const Transform = math.Transform;
 const Color = math.Color;
 const Vector3 = math.Vector3;
 const Settings = flint.GameLib.Settings;
 const Matrix4x4 = math.Matrix4x4;
 
-pub const MeshId = enum(u32) {
+pub const ModelId = enum(u32) {
     Cube,
     Cone,
 };
@@ -51,10 +51,10 @@ pub const RendererContext = struct {
     cube_mesh_buffer: MeshBuffer = undefined,
     cone_mesh_buffer: MeshBuffer = undefined,
 
-    meshes: std.AutoHashMap(MeshId, *const WorldMesh) = undefined,
+    models: std.AutoHashMap(ModelId, *const Model) = undefined,
 
-    pub fn getMeshBuffer(self: *RendererContext, mesh_id: MeshId) *MeshBuffer {
-        return switch (mesh_id) {
+    pub fn getMeshBuffer(self: *RendererContext, model_id: ModelId) *MeshBuffer {
+        return switch (model_id) {
             .Cube => &self.cube_mesh_buffer,
             .Cone => &self.cone_mesh_buffer,
         };
@@ -371,12 +371,12 @@ pub fn drawMesh(
     context: *RendererContext,
     frame: *FrameContext,
     transform: Transform,
-    mesh_id: MeshId,
+    model_id: ModelId,
     fragment_uniforms: LambertFragmentUniforms,
 ) void {
     bindFillPipeline(context, frame);
 
-    const mesh_buffer: *MeshBuffer = context.getMeshBuffer(mesh_id);
+    const mesh_buffer: *MeshBuffer = context.getMeshBuffer(model_id);
     bindMeshBuffer(frame, mesh_buffer);
 
     const model_matrix: Matrix4x4 = Camera.calculateModelMatrix(transform);
@@ -393,11 +393,11 @@ pub fn drawMeshShadow(
     context: *RendererContext,
     frame: *FrameContext,
     transform: Transform,
-    mesh_id: MeshId,
+    model_id: ModelId,
 ) void {
     bindShadowPipeline(context, frame);
 
-    const mesh_buffer: *MeshBuffer = context.getMeshBuffer(mesh_id);
+    const mesh_buffer: *MeshBuffer = context.getMeshBuffer(model_id);
     bindMeshBuffer(frame, mesh_buffer);
 
     const model_matrix: Matrix4x4 = Camera.calculateModelMatrix(transform);

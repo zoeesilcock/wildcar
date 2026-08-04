@@ -3,9 +3,9 @@ const flint = @import("flint");
 const math = @import("math");
 
 // Types.
-const WorldMesh = @import("render/mesh.zig").WorldMesh;
-const CollisionShape = @import("render/mesh.zig").CollisionShape;
-const CollisionShapeType = @import("render/mesh.zig").CollisionShapeType;
+const Model = @import("render/model.zig").Model;
+const CollisionShape = @import("render/model.zig").CollisionShape;
+const CollisionShapeType = @import("render/model.zig").CollisionShapeType;
 const WorldVertex = @import("render/mesh.zig").WorldVertex;
 const Transform = math.Transform;
 const Vector3 = math.Vector3;
@@ -98,7 +98,7 @@ const AccessorDataType = enum(u32) {
     }
 };
 
-pub fn loadGLB(path: []const u8, allocator: std.mem.Allocator, io: std.Io) !?[]const WorldMesh {
+pub fn loadGLB(path: []const u8, allocator: std.mem.Allocator, io: std.Io) !?[]const Model {
     const file = try flint.fs.openFileRelative(io, path, .{ .mode = .read_only });
     defer file.close(io);
 
@@ -125,8 +125,8 @@ pub fn loadGLB(path: []const u8, allocator: std.mem.Allocator, io: std.Io) !?[]c
     var diagnostics = std.json.Scanner.Diagnostics{};
     scanner.enableDiagnostics(&diagnostics);
 
-    var meshes = std.ArrayList(WorldMesh).initCapacity(allocator, 1) catch @panic("OOM");
-    defer meshes.deinit(allocator);
+    var models = std.ArrayList(Model).initCapacity(allocator, 1) catch @panic("OOM");
+    defer models.deinit(allocator);
     var colliders = std.ArrayList(CollisionShape).initCapacity(allocator, 10) catch @panic("OOM");
     defer colliders.deinit(allocator);
 
@@ -219,9 +219,11 @@ pub fn loadGLB(path: []const u8, allocator: std.mem.Allocator, io: std.Io) !?[]c
                             if (is_collider) {
                                 colliders.append(allocator, extractCollider(node, vertices)) catch @panic("OOM");
                             } else {
-                                meshes.append(allocator, .{
-                                    .vertices = vertices,
-                                    .indices = indices,
+                                models.append(allocator, .{
+                                    .mesh = .{
+                                        .vertices = vertices,
+                                        .indices = indices,
+                                    },
                                 }) catch @panic("OOM");
                             }
                         }
@@ -238,11 +240,11 @@ pub fn loadGLB(path: []const u8, allocator: std.mem.Allocator, io: std.Io) !?[]c
     }
 
     const collider_slice = colliders.toOwnedSlice(allocator) catch @panic("OOM");
-    for (meshes.items) |*mesh| {
-        mesh.colliders = collider_slice;
+    for (models.items) |*model| {
+        model.colliders = collider_slice;
     }
 
-    return meshes.toOwnedSlice(allocator) catch @panic("OOM");
+    return models.toOwnedSlice(allocator) catch @panic("OOM");
 }
 
 fn extractCollider(node: std.json.Value, vertices: []WorldVertex) CollisionShape {

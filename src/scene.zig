@@ -10,8 +10,8 @@ const b3 = @import("b3.zig");
 // Types.
 const State = game.State;
 const Entity = game.Entity;
-const MeshId = renderer.MeshId;
-const WorldMesh = @import("render/mesh.zig").WorldMesh;
+const ModelId = renderer.ModelId;
+const Model = @import("render/model.zig").Model;
 const Transform = math.Transform;
 const Vector3 = math.Vector3;
 const Color = math.Color;
@@ -25,7 +25,7 @@ const SceneEntity = struct {
     scale: Vector3,
     rotation: Vector3,
     color: Color = .{ 0.9, 0.3, 0.2, 1 },
-    mesh_id: MeshId = .Cube,
+    model_id: ModelId = .Cube,
     has_collider: bool = true,
     is_dynamic: bool = false,
     children: []SceneEntity = &.{},
@@ -71,7 +71,7 @@ pub fn load(state: *State) void {
             .has_collider = item.has_collider,
             .is_dynamic = item.is_dynamic,
             .color = item.color,
-            .mesh_id = item.mesh_id,
+            .model_id = item.model_id,
             .children = state.allocator.alloc(Entity, item.children.len) catch @panic("Failed to allocate child entities"),
         };
 
@@ -85,7 +85,7 @@ pub fn load(state: *State) void {
                 .has_collider = child.has_collider,
                 .is_dynamic = child.is_dynamic,
                 .color = child.color,
-                .mesh_id = child.mesh_id,
+                .model_id = child.model_id,
             };
         }
     }
@@ -114,7 +114,7 @@ pub fn initBox3D(state: *State) void {
             entity.body_id = spawnBodyForEntity(
                 entity,
                 null,
-                state.renderer.meshes.get(entity.mesh_id),
+                state.renderer.models.get(entity.model_id),
                 state.world_id,
             );
         }
@@ -124,7 +124,7 @@ pub fn initBox3D(state: *State) void {
                 child_entity.body_id = spawnBodyForEntity(
                     child_entity,
                     entity,
-                    state.renderer.meshes.get(entity.mesh_id),
+                    state.renderer.models.get(entity.model_id),
                     state.world_id,
                 );
             }
@@ -135,7 +135,7 @@ pub fn initBox3D(state: *State) void {
 fn spawnBodyForEntity(
     entity: *const Entity,
     parent_entity: ?*const Entity,
-    opt_mesh: ?*const WorldMesh,
+    opt_model: ?*const Model,
     world_id: c.b3WorldId,
 ) c.b3BodyId {
     var body_id: c.b3BodyId = undefined;
@@ -165,8 +165,8 @@ fn spawnBodyForEntity(
         body_id = c.b3CreateBody(world_id, &body_def);
     }
 
-    if (opt_mesh) |mesh| {
-        for (mesh.colliders) |collision_shape| {
+    if (opt_model) |model| {
+        for (model.colliders) |collision_shape| {
             var transform: Transform = collision_shape.transform.toScaledMeshSpace(entity.transform.scale);
 
             if (parent_entity != null) {
