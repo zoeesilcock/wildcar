@@ -1,9 +1,13 @@
 const std = @import("std");
 const flint = @import("flint");
+const sdl = flint.sdl.c;
 const math = @import("math");
 
 // Types.
 const Model = @import("render/model.zig").Model;
+const ModelTexture = @import("render/model.zig").Texture;
+const ModelFilter = @import("render/model.zig").Filter;
+const ModelUVWrap = @import("render/model.zig").UVWrap;
 const CollisionShape = @import("render/model.zig").CollisionShape;
 const CollisionShapeType = @import("render/model.zig").CollisionShapeType;
 const WorldVertex = @import("render/mesh.zig").WorldVertex;
@@ -95,6 +99,40 @@ const AccessorDataType = enum(u32) {
             .unsigned_int => std.debug.assert(T == u32),
             .float => std.debug.assert(T == f32),
         }
+    }
+};
+
+const Filter = enum(u32) {
+    Nearest = 9728,
+    Linear = 9729,
+    NearestMipmapNearest = 9884,
+    LinearMipmapNearest = 9885,
+    NearestMipmapLinear = 9886,
+    LinearMipmapLinear = 9887,
+
+    pub fn toModel(self: Filter) ModelFilter {
+        return switch (self) {
+            .Nearest => .Nearest,
+            .Linear => .Linear,
+            .NearestMipmapNearest => .NearestMipmapNearest,
+            .LinearMipmapNearest => .LinearMipmapNearest,
+            .NearestMipmapLinear => .NearestMipmapLinear,
+            .LinearMipmapLinear => .LinearMipmapLinear,
+        };
+    }
+};
+
+const UVWrap = enum(u32) {
+    ClampToEdge = 33071,
+    MirroredRepeat = 33648,
+    Repeat = 10497,
+
+    pub fn toModel(self: UVWrap) ModelUVWrap {
+        return switch (self) {
+            .ClampToEdge => .ClampToEdge,
+            .MirroredRepeat => .MirroredRepeat,
+            .Repeat => .Repeat,
+        };
     }
 };
 
@@ -194,7 +232,6 @@ pub fn loadGLB(path: []const u8, allocator: std.mem.Allocator, io: std.Io) !?[]c
                             buffer_view = buffer_views.array.items[buffer_view_index];
                             const uvs =
                                 try extractBufferView([2]f32, accessor, buffer_view, bin_chunk, allocator);
-                            _ = uvs;
 
                             // Indices.
                             const indices_index: usize = @intCast(primitive.object.get("indices").?.integer);
@@ -205,7 +242,7 @@ pub fn loadGLB(path: []const u8, allocator: std.mem.Allocator, io: std.Io) !?[]c
 
                             // Build the result.
                             var vertices: []WorldVertex = try allocator.alloc(WorldVertex, positions.len);
-                            for (positions, normals, 0..) |position, normal, vertex_index| {
+                            for (positions, normals, uvs, 0..) |position, normal, uv, vertex_index| {
                                 vertices[vertex_index] = .{
                                     .x = position[X],
                                     .y = position[Y],
@@ -213,17 +250,21 @@ pub fn loadGLB(path: []const u8, allocator: std.mem.Allocator, io: std.Io) !?[]c
                                     .nx = normal[X],
                                     .ny = normal[Y],
                                     .nz = normal[Z],
+                                    .u = uv[X],
+                                    .v = uv[Y],
                                 };
                             }
 
                             if (is_collider) {
                                 colliders.append(allocator, extractCollider(node, vertices)) catch @panic("OOM");
                             } else {
+                                const material_index: usize = @intCast(primitive.object.get("material").?.integer);
                                 models.append(allocator, .{
                                     .mesh = .{
                                         .vertices = vertices,
                                         .indices = indices,
                                     },
+                                    .texture = extractTexture(json.value, bin_chunk, material_index, allocator),
                                 }) catch @panic("OOM");
                             }
                         }
@@ -245,6 +286,59 @@ pub fn loadGLB(path: []const u8, allocator: std.mem.Allocator, io: std.Io) !?[]c
     }
 
     return models.toOwnedSlice(allocator) catch @panic("OOM");
+}
+
+fn extractTexture(
+    json: std.json.Value,
+    bin_chunk: Chunk,
+    material_index: usize,
+    allocator: std.mem.Allocator,
+) ?ModelTexture {
+    var result: ?ModelTexture = null;
+
+    if (json.object.get("materials")) |materials| {
+        const buffer_views = json.object.get("bufferViews").?;
+        const material = materials.array.items[material_index];
+        if (material.object.get("pbrMetallicRoughness")) |pbr| {
+            if (pbr.object.get("baseColorTexture")) |base_color_texture| {
+                const texture_index: usize = @intCast(base_color_texture.object.get("index").?.integer);
+                if (json.object.get("textures")) |textures| {
+                    const texture = textures.array.items[texture_index];
+
+                    // Extract sampler.
+                    const sampler_index: usize = @intCast(texture.object.get("sampler").?.integer);
+                    const sampler = json.object.get("samplers").?.array.items[sampler_index];
+                    const min_filter: Filter = @fromBackingInt(@intCast(sampler.object.get("minFilter").?.integer));
+                    const mag_filter: Filter = @fromBackingInt(@intCast(sampler.object.get("magFilter").?.integer));
+                    const wrap_u: UVWrap = @fromBackingInt(@intCast(sampler.object.get("wrapS").?.integer));
+                    const wrap_v: UVWrap = @fromBackingInt(@intCast(sampler.object.get("wrapT").?.integer));
+
+                    // Extract image.
+                    const image_index: usize = @intCast(texture.object.get("source").?.integer);
+                    const image = json.object.get("images").?.array.items[image_index];
+                    const buffer_view_index: usize = @intCast(image.object.get("bufferView").?.integer);
+                    const buffer_view = buffer_views.array.items[buffer_view_index];
+                    var byte_offset: usize = 0;
+                    if (buffer_view.object.get("byteOffset")) |offset| {
+                        byte_offset = @intCast(offset.integer);
+                    }
+                    const byte_length: usize = @intCast(buffer_view.object.get("byteLength").?.integer);
+                    const image_bytes = bin_chunk.chunk_data[byte_offset .. byte_offset + byte_length];
+                    const data = allocator.dupe(u8, image_bytes) catch @panic("OOM");
+
+                    result = .{
+                        .min_filter = min_filter.toModel(),
+                        .mag_filter = mag_filter.toModel(),
+                        .wrap_u = wrap_u.toModel(),
+                        .wrap_v = wrap_v.toModel(),
+                        .data = data,
+                    };
+                }
+            }
+        }
+    }
+
+    return result;
 }
 
 fn extractCollider(node: std.json.Value, vertices: []WorldVertex) CollisionShape {

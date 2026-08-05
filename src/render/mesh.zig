@@ -10,6 +10,8 @@ pub const WorldVertex = struct {
     nx: f32,
     ny: f32,
     nz: f32,
+    u: f32 = 0,
+    v: f32 = 0,
 };
 
 pub const ScreenVertex = struct {
