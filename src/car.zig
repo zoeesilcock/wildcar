@@ -107,6 +107,7 @@ fn setWheels(wheels: *[4]Entity) void {
 }
 
 pub fn updatePhysics(state: *State, car: *const Entity) void {
+    const ignore_input = state.camera.mode != .Orbit;
     const body_id: c.b3BodyId = car.body_id;
     const wheel_entities: []Entity = car.children[0..4];
 
@@ -118,7 +119,7 @@ pub fn updatePhysics(state: *State, car: *const Entity) void {
     var has_engine_force: bool = false;
     var has_braking_force: bool = false;
     var longitudinal_force: Vector3 = @splat(0);
-    if (state.input.forward_button.down or state.input.backward_button.down) {
+    if (!ignore_input and (state.input.forward_button.down or state.input.backward_button.down)) {
         const local_forward: Vector3 = .{ -1, 0, 0 };
         const world_forward: Vector3 = math.rotateVectorBy(local_forward, car.transform.rotation);
         const world_backward: Vector3 = -world_forward;
@@ -156,9 +157,9 @@ pub fn updatePhysics(state: *State, car: *const Entity) void {
     }
 
     var steering_input: f32 = 0;
-    if (state.input.left_button.down) {
+    if (!ignore_input and state.input.left_button.down) {
         steering_input = 1;
-    } else if (state.input.right_button.down) {
+    } else if (!ignore_input and state.input.right_button.down) {
         steering_input = -1;
     }
     const steering_angle: f32 = steering_input * car_spec.max_steering_angle;
