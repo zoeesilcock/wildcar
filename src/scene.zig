@@ -24,7 +24,7 @@ const SceneEntity = struct {
     position: Vector3,
     scale: Vector3,
     rotation: Vector3,
-    color: Color = .{ 0.9, 0.3, 0.2, 1 },
+    color: Color = .{ 1, 1, 1, 1 },
     model_id: ModelId = .Cube,
     has_collider: bool = true,
     is_dynamic: bool = false,

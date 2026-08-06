@@ -5,6 +5,8 @@ cbuffer UniformBlock : register(b0, space3)
 
 Texture2D<float> ShadowMap : register(t0, space2);
 SamplerState ShadowSampler : register(s0, space2);
+Texture2D<float4> TextureMap : register(t1, space2);
+SamplerState TextureSampler : register(s1, space2);
 
 cbuffer LightingBlock : register(b1, space3)
 {
@@ -20,6 +22,8 @@ struct Input
 {
     float3 Normal : TEXCOORD0;
     float3 WorldPosition : TEXCOORD1;
+    float2 UV : TEXCOORD2;
+    float4 Position : SV_Position;
 };
 
 float4 main(Input input) : SV_Target0
@@ -47,7 +51,11 @@ float4 main(Input input) : SV_Target0
 
     //return float4(input.Normal * 0.5 + 0.5, 1.0); // View normal data as colors.
     //return float4(shadowUV, fragmentDepth, 1.0); // View distance from main light.
+    //return float4(input.UV, 0, 1); // View the UVs.
 
-    float3 finalColor = Color.rgb * (AmbientColor + LightColor * brightness * visibility);
+    float3 textureColor = TextureMap.Sample(TextureSampler, input.UV);
+    //return float4(textureColor, 1); // View only texture color.
+
+    float3 finalColor = textureColor.rgb * Color.rgb * (AmbientColor + LightColor * brightness * visibility);
     return float4(finalColor, 1.0);
 }

@@ -127,7 +127,7 @@ pub const State = struct {
     entities: std.ArrayList(Entity),
     world_id: c.b3WorldId = undefined,
 
-    time_of_day: f32 = 0.5,
+    time_of_day: f32 = 0.4,
     light_direction: Vector3 = .{ 0, 1, 0 }, // Direction to light.
     light_color: Color3 = .{ 1, 0.95, 0.85 },
     ambient_strength: f32 = 0.3,
@@ -280,7 +280,7 @@ pub export fn initFull3D(dependencies: GameLib.Dependencies.Full3D) GameLib.Game
 
 pub export fn deinit(state_ptr: GameLib.GameStatePtr) void {
     const state: *State = @ptrCast(@alignCast(state_ptr));
-    renderer.deinit(&state.renderer);
+    renderer.deinit(&state.renderer, state.allocator);
     scene.unload(state);
     scene.deinitBox3D(state);
     car.deinit(state.allocator);
@@ -288,7 +288,7 @@ pub export fn deinit(state_ptr: GameLib.GameStatePtr) void {
 
 pub export fn willReload(state_ptr: GameLib.GameStatePtr) void {
     const state: *State = @ptrCast(@alignCast(state_ptr));
-    renderer.deinit(&state.renderer);
+    renderer.deinit(&state.renderer, state.allocator);
 
     if (state.internal.reset_scene_on_reload) {
         scene.unload(state);

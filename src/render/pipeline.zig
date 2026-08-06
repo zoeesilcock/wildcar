@@ -1,5 +1,6 @@
 const std = @import("std");
 const flint = @import("flint");
+const sdl_utils = flint.sdl;
 const sdl = flint.sdl.c;
 const renderer = @import("renderer.zig");
 const buffer = @import("buffer.zig");
@@ -11,6 +12,7 @@ const CUBE_MODEL = @import("model.zig").CUBE;
 
 // Types.
 const RendererContext = renderer.RendererContext;
+const TextureResource = renderer.TextureResource;
 const WorldVertex = mesh.WorldVertex;
 const ScreenVertex = mesh.ScreenVertex;
 
@@ -21,7 +23,7 @@ pub fn init(context: *RendererContext, allocator: std.mem.Allocator, io: std.Io)
     }
     defer sdl.SDL_ReleaseGPUShader(context.gpu_device, vertex_shader);
 
-    const fragment_shader = loadShader(context, "lambert.frag", 1, 2, 0, 0, allocator, io);
+    const fragment_shader = loadShader(context, "lambert.frag", 2, 2, 0, 0, allocator, io);
     if (fragment_shader == null) {
         @panic("Failed to load fragment shader");
     }
@@ -99,18 +101,24 @@ pub fn init(context: *RendererContext, allocator: std.mem.Allocator, io: std.Io)
             .location = 1,
             .offset = @sizeOf(f32) * 3,
         },
+        .{
+            .buffer_slot = 0,
+            .format = sdl.SDL_GPU_VERTEXELEMENTFORMAT_FLOAT2,
+            .location = 2,
+            .offset = @sizeOf(f32) * 6,
+        },
     };
     var pipeline_create_info: sdl.SDL_GPUGraphicsPipelineCreateInfo = .{
         .target_info = .{
-            .num_color_targets = 1,
+            .num_color_targets = color_target_descriptions.len,
             .color_target_descriptions = &color_target_descriptions,
             .has_depth_stencil_target = true,
             .depth_stencil_format = context.depth_stencil_format,
         },
         .vertex_input_state = .{
-            .num_vertex_buffers = 1,
+            .num_vertex_buffers = vertex_buffer_descriptions.len,
             .vertex_buffer_descriptions = &vertex_buffer_descriptions,
-            .num_vertex_attributes = 2,
+            .num_vertex_attributes = vertex_attributes.len,
             .vertex_attributes = &vertex_attributes,
         },
         .depth_stencil_state = .{
@@ -185,13 +193,13 @@ pub fn init(context: *RendererContext, allocator: std.mem.Allocator, io: std.Io)
     };
     pipeline_create_info = .{
         .target_info = .{
-            .num_color_targets = 1,
+            .num_color_targets = color_target_descriptions.len,
             .color_target_descriptions = &color_target_descriptions,
         },
         .vertex_input_state = .{
-            .num_vertex_buffers = 1,
+            .num_vertex_buffers = screen_vertex_buffer_descriptions.len,
             .vertex_buffer_descriptions = &screen_vertex_buffer_descriptions,
-            .num_vertex_attributes = 2,
+            .num_vertex_attributes = screen_vertex_attributes.len,
             .vertex_attributes = &screen_vertex_attributes,
         },
         .primitive_type = sdl.SDL_GPU_PRIMITIVETYPE_TRIANGLELIST,
@@ -207,7 +215,7 @@ pub fn init(context: *RendererContext, allocator: std.mem.Allocator, io: std.Io)
     // Sky pipeline.
     pipeline_create_info = .{
         .target_info = .{
-            .num_color_targets = 1,
+            .num_color_targets = color_target_descriptions.len,
             .color_target_descriptions = &color_target_descriptions,
             .has_depth_stencil_target = true,
             .depth_stencil_format = context.depth_stencil_format,
@@ -239,9 +247,9 @@ pub fn init(context: *RendererContext, allocator: std.mem.Allocator, io: std.Io)
             .depth_stencil_format = context.depth_stencil_format,
         },
         .vertex_input_state = .{
-            .num_vertex_buffers = 1,
+            .num_vertex_buffers = vertex_buffer_descriptions.len,
             .vertex_buffer_descriptions = &vertex_buffer_descriptions,
-            .num_vertex_attributes = 2,
+            .num_vertex_attributes = vertex_attributes.len,
             .vertex_attributes = &vertex_attributes,
         },
         .depth_stencil_state = .{
@@ -262,19 +270,54 @@ pub fn init(context: *RendererContext, allocator: std.mem.Allocator, io: std.Io)
     }
 
     context.models = .init(allocator);
+    context.model_textures = .init(allocator);
 
-    context.quad_mesh_buffer = buffer.upload(context, ScreenVertex, mesh.QUAD_VERTICES, mesh.QUAD_INDICES);
+    context.quad_mesh_buffer = buffer.uploadMesh(context, ScreenVertex, mesh.QUAD_VERTICES, mesh.QUAD_INDICES);
 
     context.cube_mesh_buffer = buffer.uploadWorldMesh(context, CUBE_MODEL.mesh);
     context.models.put(.Cube, &CUBE_MODEL) catch @panic("OOM");
 
+    context.white_texture = TextureResource.create(context, allocator, 1, 1, .{
+        .min_filter = sdl.SDL_GPU_FILTER_NEAREST,
+        .mag_filter = sdl.SDL_GPU_FILTER_NEAREST,
+        .address_mode_u = sdl.SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE,
+        .address_mode_v = sdl.SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE,
+        .address_mode_w = sdl.SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE,
+        .mipmap_mode = sdl.SDL_GPU_SAMPLERMIPMAPMODE_NEAREST,
+    });
+    buffer.uploadTextureRaw(context, context.white_texture.texture, &.{ 255, 255, 255, 255 }, 1, 1, 1, 1);
+    context.model_textures.put(.Cube, context.white_texture) catch @panic("OOM");
+
     if ((gltf.loadGLB("assets/models/cone.glb", allocator, io) catch @panic("Failed to load model"))) |models| {
         context.cone_mesh_buffer = buffer.uploadWorldMesh(context, models[0].mesh);
         context.models.put(.Cone, &models[0]) catch @panic("OOM");
+
+        if (models[0].texture) |texture| {
+            const sdl_io = sdl_utils.panicIfNull(
+                sdl.SDL_IOFromConstMem(@ptrCast(@constCast(texture.data.ptr)), texture.data.len),
+                "Failed to open texture butes.",
+            );
+            const surface: *sdl.SDL_Surface = sdl_utils.panicIfNull(
+                sdl.SDL_LoadPNG_IO(sdl_io, true),
+                "Failed to decode PNG texture",
+            );
+            defer sdl.SDL_DestroySurface(surface);
+
+            const texture_resource = TextureResource.create(
+                context,
+                allocator,
+                @intCast(surface.w),
+                @intCast(surface.h),
+                texture.getSamplerCreateInfo(),
+            );
+
+            buffer.uploadTexture(context, surface, texture_resource.texture);
+            context.model_textures.put(.Cone, texture_resource) catch @panic("OOM");
+        }
     }
 }
 
-pub fn deinit(context: *RendererContext) void {
+pub fn deinit(context: *RendererContext, allocator: std.mem.Allocator) void {
     sdl.SDL_ReleaseGPUGraphicsPipeline(context.gpu_device, context.fill_pipeline);
     sdl.SDL_ReleaseGPUGraphicsPipeline(context.gpu_device, context.line_pipeline);
     sdl.SDL_ReleaseGPUGraphicsPipeline(context.gpu_device, context.screen_pipeline);
@@ -288,6 +331,15 @@ pub fn deinit(context: *RendererContext) void {
     sdl.SDL_ReleaseGPUBuffer(context.gpu_device, context.cone_mesh_buffer.vertex_buffer);
     sdl.SDL_ReleaseGPUBuffer(context.gpu_device, context.cone_mesh_buffer.index_buffer);
 
+    var texture_iterator = context.model_textures.iterator();
+    while (texture_iterator.next()) |entry| {
+        const texture = entry.value_ptr.*;
+        sdl.SDL_ReleaseGPUTexture(context.gpu_device, texture.texture);
+        sdl.SDL_ReleaseGPUSampler(context.gpu_device, texture.sampler);
+        texture.deinit(allocator);
+    }
+
+    context.model_textures.deinit();
     context.models.deinit();
 }
 

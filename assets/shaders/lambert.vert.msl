@@ -13,6 +13,7 @@ struct main0_out
 {
     float3 out_var_TEXCOORD0 [[user(locn0)]];
     float3 out_var_TEXCOORD1 [[user(locn1)]];
+    float2 out_var_TEXCOORD2 [[user(locn2)]];
     float4 gl_Position [[position]];
 };
 
@@ -20,15 +21,17 @@ struct main0_in
 {
     float3 in_var_TEXCOORD0 [[attribute(0)]];
     float3 in_var_TEXCOORD1 [[attribute(1)]];
+    float2 in_var_TEXCOORD2 [[attribute(2)]];
 };
 
 vertex main0_out main0(main0_in in [[stage_in]], constant type_UniformBlock& UniformBlock [[buffer(0)]])
 {
     main0_out out = {};
-    float4 _34 = float4(in.in_var_TEXCOORD0, 1.0);
+    float4 _40 = float4(in.in_var_TEXCOORD0, 1.0);
     out.out_var_TEXCOORD0 = fast::normalize(in.in_var_TEXCOORD1 * float3x3(float4(UniformBlock.Model[0][0], UniformBlock.Model[1][0], UniformBlock.Model[2][0], UniformBlock.Model[3][0]).xyz, float4(UniformBlock.Model[0][1], UniformBlock.Model[1][1], UniformBlock.Model[2][1], UniformBlock.Model[3][1]).xyz, float4(UniformBlock.Model[0][2], UniformBlock.Model[1][2], UniformBlock.Model[2][2], UniformBlock.Model[3][2]).xyz));
-    out.out_var_TEXCOORD1 = (UniformBlock.Model * _34).xyz;
-    out.gl_Position = UniformBlock.Transform * _34;
+    out.out_var_TEXCOORD1 = (UniformBlock.Model * _40).xyz;
+    out.out_var_TEXCOORD2 = in.in_var_TEXCOORD2;
+    out.gl_Position = UniformBlock.Transform * _40;
     return out;
 }
 

@@ -50,8 +50,10 @@ pub const RendererContext = struct {
     quad_mesh_buffer: MeshBuffer = undefined,
     cube_mesh_buffer: MeshBuffer = undefined,
     cone_mesh_buffer: MeshBuffer = undefined,
+    white_texture: *TextureResource = undefined,
 
     models: std.AutoHashMap(ModelId, *const Model) = undefined,
+    model_textures: std.AutoHashMap(ModelId, *const TextureResource) = undefined,
 
     pub fn getMeshBuffer(self: *RendererContext, model_id: ModelId) *MeshBuffer {
         return switch (model_id) {
@@ -70,6 +72,47 @@ pub const FrameContext = struct {
     color_target_info: sdl.SDL_GPUColorTargetInfo = undefined,
     view_projection: Matrix4x4 = undefined,
     light_view_projection: Matrix4x4 = undefined,
+};
+
+pub const TextureResource = struct {
+    texture: *sdl.SDL_GPUTexture,
+    sampler: *sdl.SDL_GPUSampler,
+
+    pub fn create(
+        context: *RendererContext,
+        allocator: std.mem.Allocator,
+        width: u32,
+        height: u32,
+        sampler_info: sdl.SDL_GPUSamplerCreateInfo,
+    ) *TextureResource {
+        var texture_resource: *TextureResource = allocator.create(TextureResource) catch @panic("OOM");
+
+        if (sdl.SDL_CreateGPUTexture(context.gpu_device, &.{
+            .type = sdl.SDL_GPU_TEXTURETYPE_2D,
+            .format = sdl.SDL_GPU_TEXTUREFORMAT_B8G8R8A8_UNORM,
+            .usage = sdl.SDL_GPU_TEXTUREUSAGE_SAMPLER,
+            .width = @intCast(width),
+            .height = @intCast(height),
+            .layer_count_or_depth = 1,
+            .num_levels = 1,
+        })) |gpu_texture| {
+            texture_resource.texture = gpu_texture;
+        } else {
+            @panic("Failed to create GPU texture");
+        }
+
+        if (sdl.SDL_CreateGPUSampler(context.gpu_device, &sampler_info)) |sampler| {
+            texture_resource.sampler = sampler;
+        } else {
+            @panic("Failed to create texture sampler");
+        }
+
+        return texture_resource;
+    }
+
+    pub fn deinit(self: *const TextureResource, allocator: std.mem.Allocator) void {
+        allocator.destroy(self);
+    }
 };
 
 const LambertVertexUniforms = extern struct {
@@ -139,8 +182,8 @@ pub fn init(
     return context;
 }
 
-pub fn deinit(context: *RendererContext) void {
-    pipeline.deinit(context);
+pub fn deinit(context: *RendererContext, allocator: std.mem.Allocator) void {
+    pipeline.deinit(context, allocator);
     device.deinitWindowSize(context);
 }
 
@@ -218,7 +261,7 @@ pub fn beginDrawPass(context: *RendererContext, frame: *FrameContext) void {
     );
 }
 
-fn bindFillPipeline(context: *RendererContext, frame: *FrameContext) void {
+fn bindFillPipeline(context: *RendererContext, frame: *FrameContext, opt_texture: ?*const TextureResource) void {
     if (frame.bound_pipeline != context.fill_pipeline) {
         sdl.SDL_BindGPUGraphicsPipeline(frame.render_pass, context.fill_pipeline);
         frame.bound_pipeline = context.fill_pipeline;
@@ -233,6 +276,18 @@ fn bindFillPipeline(context: *RendererContext, frame: *FrameContext) void {
         },
         1,
     );
+
+    if (opt_texture) |texture| {
+        sdl.SDL_BindGPUFragmentSamplers(
+            frame.render_pass,
+            1,
+            &.{
+                .texture = texture.texture,
+                .sampler = texture.sampler,
+            },
+            1,
+        );
+    }
 }
 
 fn bindLinePipeline(context: *RendererContext, frame: *FrameContext) void {
@@ -374,7 +429,7 @@ pub fn drawMesh(
     model_id: ModelId,
     fragment_uniforms: LambertFragmentUniforms,
 ) void {
-    bindFillPipeline(context, frame);
+    bindFillPipeline(context, frame, context.model_textures.get(model_id));
 
     const mesh_buffer: *MeshBuffer = context.getMeshBuffer(model_id);
     bindMeshBuffer(frame, mesh_buffer);
