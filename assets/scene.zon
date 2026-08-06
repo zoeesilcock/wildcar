@@ -1,54 +1,97 @@
 .{
     .items = .{
         // Car.
+        // .{
+        //     .position = .{ -14, 2.5, 2.5 },
+        //     .scale = .{ 4, 1, 2 },
+        //     .rotation = .{ 0, 0, 0 },
+        //     .color = .{ 0.9, 0.3, 0.2, 1 },
+        //     .is_dynamic = true,
+        //     .children = .{
+        //         // Wheels.
+        //         .{
+        //             .position = .{ -1, -0.5, 1 },
+        //             .scale = .{ 0.66, 0.66, 0.3 },
+        //             .rotation = .{ 0, 0, 0 },
+        //             .color = .{ 0.1, 0.1, 0.2, 1 },
+        //             .has_collider = false,
+        //         },
+        //         .{
+        //             .position = .{ 1, -0.5, 1 },
+        //             .scale = .{ 0.66, 0.66, 0.3 },
+        //             .rotation = .{ 0, 0, 0 },
+        //             .color = .{ 0.1, 0.1, 0.2, 1 },
+        //             .has_collider = false,
+        //         },
+        //         .{
+        //             .position = .{ -1, -0.5, -1 },
+        //             .scale = .{ 0.66, 0.66, 0.3 },
+        //             .rotation = .{ 0, 0, 0 },
+        //             .color = .{ 0.1, 0.1, 0.2, 1 },
+        //             .has_collider = false,
+        //         },
+        //         .{
+        //             .position = .{ 1, -0.5, -1 },
+        //             .scale = .{ 0.66, 0.66, 0.3 },
+        //             .rotation = .{ 0, 0, 0 },
+        //             .color = .{ 0.1, 0.1, 0.2, 1 },
+        //             .has_collider = false,
+        //         },
+        //         // Cab.
+        //         .{
+        //             .position = .{ 0.25, 0.75, 0 },
+        //             .scale = .{ 1.25, 1, 2 },
+        //             .rotation = .{ 0, 0, 0 },
+        //             .color = .{ 0.9, 0.3, 0.2, 1 },
+        //         },
+        //         .{
+        //             .position = .{ -0.735, 0.495, 0 },
+        //             .scale = .{ 1.5, 0.75, 2 },
+        //             .rotation = .{ 0, 0, 0.66 },
+        //             .color = .{ 0.9, 0.3, 0.2, 1 },
+        //         },
+        //     },
+        // },
+        // Truck.
         .{
             .position = .{ -14, 2.5, 2.5 },
-            .scale = .{ 4, 1, 2 },
+            .scale = .{ 2, 2, 2 },
             .rotation = .{ 0, 0, 0 },
-            .color = .{ 0.9, 0.3, 0.2, 1 },
             .is_dynamic = true,
+            .model_id = .Truck,
             .children = .{
                 // Wheels.
                 .{
-                    .position = .{ -1, -0.5, 1 },
-                    .scale = .{ 0.66, 0.66, 0.3 },
+                    .position = .{ -1.2, 0, 1 },
+                    .scale = .{ 0.8, 0.8, 0.4 },
                     .rotation = .{ 0, 0, 0 },
                     .color = .{ 0.1, 0.1, 0.2, 1 },
+                    .model_id = .Cube,
                     .has_collider = false,
                 },
                 .{
-                    .position = .{ 1, -0.5, 1 },
-                    .scale = .{ 0.66, 0.66, 0.3 },
+                    .position = .{ 1.3, 0, 1 },
+                    .scale = .{ 0.8, 0.8, 0.4 },
                     .rotation = .{ 0, 0, 0 },
                     .color = .{ 0.1, 0.1, 0.2, 1 },
+                    .model_id = .Cube,
                     .has_collider = false,
                 },
                 .{
-                    .position = .{ -1, -0.5, -1 },
-                    .scale = .{ 0.66, 0.66, 0.3 },
+                    .position = .{ -1.2, 0, -1 },
+                    .scale = .{ 0.8, 0.8, 0.4 },
                     .rotation = .{ 0, 0, 0 },
                     .color = .{ 0.1, 0.1, 0.2, 1 },
+                    .model_id = .Cube,
                     .has_collider = false,
                 },
                 .{
-                    .position = .{ 1, -0.5, -1 },
-                    .scale = .{ 0.66, 0.66, 0.3 },
+                    .position = .{ 1.3, 0, -1 },
+                    .scale = .{ 0.8, 0.8, 0.4 },
                     .rotation = .{ 0, 0, 0 },
                     .color = .{ 0.1, 0.1, 0.2, 1 },
+                    .model_id = .Cube,
                     .has_collider = false,
-                },
-                // Cab.
-                .{
-                    .position = .{ 0.25, 0.75, 0 },
-                    .scale = .{ 1.25, 1, 2 },
-                    .rotation = .{ 0, 0, 0 },
-                    .color = .{ 0.9, 0.3, 0.2, 1 },
-                },
-                .{
-                    .position = .{ -0.735, 0.495, 0 },
-                    .scale = .{ 1.5, 0.75, 2 },
-                    .rotation = .{ 0, 0, 0.66 },
-                    .color = .{ 0.9, 0.3, 0.2, 1 },
                 },
             },
         },

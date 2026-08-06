@@ -5,6 +5,8 @@ const sdl_utils = flint.sdl;
 const math = @import("math");
 const device = @import("device.zig");
 const pipeline = @import("pipeline.zig");
+const buffer = @import("buffer.zig");
+const gltf = @import("../gltf.zig");
 
 // Types.
 pub const Camera = @import("camera.zig").Camera;
@@ -19,6 +21,7 @@ const Matrix4x4 = math.Matrix4x4;
 pub const ModelId = enum(u32) {
     Cube,
     Cone,
+    Truck,
 };
 
 pub const RendererContext = struct {
@@ -48,24 +51,61 @@ pub const RendererContext = struct {
     shadow_pipeline: *sdl.SDL_GPUGraphicsPipeline = undefined,
 
     quad_mesh_buffer: MeshBuffer = undefined,
-    cube_mesh_buffer: MeshBuffer = undefined,
-    cone_mesh_buffer: MeshBuffer = undefined,
+
     white_texture: *TextureResource = undefined,
 
     models: std.AutoHashMap(ModelId, *const Model) = undefined,
     model_textures: std.AutoHashMap(ModelId, *const TextureResource) = undefined,
+    mesh_buffers: std.AutoHashMap(ModelId, MeshBuffer) = undefined,
 
-    pub fn getMeshBuffer(self: *RendererContext, model_id: ModelId) *MeshBuffer {
-        return switch (model_id) {
-            .Cube => &self.cube_mesh_buffer,
-            .Cone => &self.cone_mesh_buffer,
-        };
+    pub fn getMeshBuffer(self: *RendererContext, model_id: ModelId) ?*const MeshBuffer {
+        return self.mesh_buffers.getPtr(model_id);
+    }
+
+    pub fn importModel(
+        context: *RendererContext,
+        path: []const u8,
+        model_id: ModelId,
+        model_index: u32,
+        allocator: std.mem.Allocator,
+        io: std.Io,
+    ) void {
+        std.log.info("Importing model: {s}", .{path});
+
+        if ((gltf.loadGLB(path, allocator, io) catch @panic("Failed to load model"))) |models| {
+            const mesh_buffer = buffer.uploadWorldMesh(context, models[model_index].mesh);
+            context.mesh_buffers.put(model_id, mesh_buffer) catch @panic("OOM");
+            context.models.put(model_id, &models[model_index]) catch @panic("OOM");
+
+            if (models[model_index].texture) |texture| {
+                const sdl_io = sdl_utils.panicIfNull(
+                    sdl.SDL_IOFromConstMem(@ptrCast(@constCast(texture.data.ptr)), texture.data.len),
+                    "Failed to open texture butes.",
+                );
+                const surface: *sdl.SDL_Surface = sdl_utils.panicIfNull(
+                    sdl.SDL_LoadPNG_IO(sdl_io, true),
+                    "Failed to decode PNG texture",
+                );
+                defer sdl.SDL_DestroySurface(surface);
+
+                const texture_resource = TextureResource.create(
+                    context,
+                    allocator,
+                    @intCast(surface.w),
+                    @intCast(surface.h),
+                    texture.getSamplerCreateInfo(),
+                );
+
+                buffer.uploadTexture(context, surface, texture_resource.texture);
+                context.model_textures.put(model_id, texture_resource) catch @panic("OOM");
+            }
+        }
     }
 };
 
 pub const FrameContext = struct {
     bound_pipeline: ?*sdl.SDL_GPUGraphicsPipeline = null,
-    bound_mesh: ?*MeshBuffer = null,
+    bound_mesh: ?*const MeshBuffer = null,
 
     command_buffer: ?*sdl.SDL_GPUCommandBuffer = null,
     render_pass: ?*sdl.SDL_GPURenderPass = null,
@@ -311,14 +351,16 @@ fn bindShadowPipeline(context: *RendererContext, frame: *FrameContext) void {
     }
 }
 
-fn bindMeshBuffer(frame: *FrameContext, mesh_buffer: *MeshBuffer) void {
+fn bindMeshBuffer(frame: *FrameContext, mesh_buffer: *const MeshBuffer) void {
     if (frame.bound_mesh != mesh_buffer) {
-        sdl.SDL_BindGPUVertexBuffers(frame.render_pass, 0, &.{ .buffer = mesh_buffer.vertex_buffer, .offset = 0 }, 1);
-        sdl.SDL_BindGPUIndexBuffer(
-            frame.render_pass,
-            &.{ .buffer = mesh_buffer.index_buffer, .offset = 0 },
-            sdl.SDL_GPU_INDEXELEMENTSIZE_16BIT,
-        );
+        sdl.SDL_BindGPUVertexBuffers(frame.render_pass, 0, &.{
+            .buffer = mesh_buffer.vertex_buffer,
+            .offset = 0,
+        }, 1);
+        sdl.SDL_BindGPUIndexBuffer(frame.render_pass, &.{
+            .buffer = mesh_buffer.index_buffer,
+            .offset = 0,
+        }, sdl.SDL_GPU_INDEXELEMENTSIZE_16BIT);
         frame.bound_mesh = mesh_buffer;
     }
 }
@@ -410,16 +452,18 @@ fn drawCubeInternal(
     transform: Transform,
     fragment_uniforms: LambertFragmentUniforms,
 ) void {
-    bindMeshBuffer(frame, &context.cube_mesh_buffer);
+    if (context.getMeshBuffer(.Cube)) |mesh_buffer| {
+        bindMeshBuffer(frame, mesh_buffer);
 
-    const model_matrix: Matrix4x4 = Camera.calculateModelMatrix(transform);
-    const mvp = frame.view_projection.multiply(model_matrix);
-    const vertex_uniforms: LambertVertexUniforms = .{ .mvp = mvp, .model = model_matrix };
-    sdl.SDL_PushGPUVertexUniformData(frame.command_buffer, 0, &vertex_uniforms, @sizeOf(LambertVertexUniforms));
+        const model_matrix: Matrix4x4 = Camera.calculateModelMatrix(transform);
+        const mvp = frame.view_projection.multiply(model_matrix);
+        const vertex_uniforms: LambertVertexUniforms = .{ .mvp = mvp, .model = model_matrix };
+        sdl.SDL_PushGPUVertexUniformData(frame.command_buffer, 0, &vertex_uniforms, @sizeOf(LambertVertexUniforms));
 
-    sdl.SDL_PushGPUFragmentUniformData(frame.command_buffer, 0, &fragment_uniforms, @sizeOf(LambertFragmentUniforms));
+        sdl.SDL_PushGPUFragmentUniformData(frame.command_buffer, 0, &fragment_uniforms, @sizeOf(LambertFragmentUniforms));
 
-    sdl.SDL_DrawGPUIndexedPrimitives(frame.render_pass, context.cube_mesh_buffer.index_count, 1, 0, 0, 0);
+        sdl.SDL_DrawGPUIndexedPrimitives(frame.render_pass, mesh_buffer.index_count, 1, 0, 0, 0);
+    }
 }
 
 pub fn drawMesh(
@@ -429,19 +473,20 @@ pub fn drawMesh(
     model_id: ModelId,
     fragment_uniforms: LambertFragmentUniforms,
 ) void {
-    bindFillPipeline(context, frame, context.model_textures.get(model_id));
+    if (context.getMeshBuffer(model_id)) |mesh_buffer| {
+        bindFillPipeline(context, frame, context.model_textures.get(model_id));
 
-    const mesh_buffer: *MeshBuffer = context.getMeshBuffer(model_id);
-    bindMeshBuffer(frame, mesh_buffer);
+        bindMeshBuffer(frame, mesh_buffer);
 
-    const model_matrix: Matrix4x4 = Camera.calculateModelMatrix(transform);
-    const mvp = frame.view_projection.multiply(model_matrix);
-    const vertex_uniforms: LambertVertexUniforms = .{ .mvp = mvp, .model = model_matrix };
-    sdl.SDL_PushGPUVertexUniformData(frame.command_buffer, 0, &vertex_uniforms, @sizeOf(LambertVertexUniforms));
+        const model_matrix: Matrix4x4 = Camera.calculateModelMatrix(transform);
+        const mvp = frame.view_projection.multiply(model_matrix);
+        const vertex_uniforms: LambertVertexUniforms = .{ .mvp = mvp, .model = model_matrix };
+        sdl.SDL_PushGPUVertexUniformData(frame.command_buffer, 0, &vertex_uniforms, @sizeOf(LambertVertexUniforms));
 
-    sdl.SDL_PushGPUFragmentUniformData(frame.command_buffer, 0, &fragment_uniforms, @sizeOf(LambertFragmentUniforms));
+        sdl.SDL_PushGPUFragmentUniformData(frame.command_buffer, 0, &fragment_uniforms, @sizeOf(LambertFragmentUniforms));
 
-    sdl.SDL_DrawGPUIndexedPrimitives(frame.render_pass, mesh_buffer.index_count, 1, 0, 0, 0);
+        sdl.SDL_DrawGPUIndexedPrimitives(frame.render_pass, mesh_buffer.index_count, 1, 0, 0, 0);
+    }
 }
 
 pub fn drawMeshShadow(
@@ -450,17 +495,18 @@ pub fn drawMeshShadow(
     transform: Transform,
     model_id: ModelId,
 ) void {
-    bindShadowPipeline(context, frame);
+    if (context.getMeshBuffer(model_id)) |mesh_buffer| {
+        bindShadowPipeline(context, frame);
 
-    const mesh_buffer: *MeshBuffer = context.getMeshBuffer(model_id);
-    bindMeshBuffer(frame, mesh_buffer);
+        bindMeshBuffer(frame, mesh_buffer);
 
-    const model_matrix: Matrix4x4 = Camera.calculateModelMatrix(transform);
-    const light_mvp = frame.light_view_projection.multiply(model_matrix);
-    const vertex_uniforms: ShadowVertexUniforms = .{ .light_mvp = light_mvp };
-    sdl.SDL_PushGPUVertexUniformData(frame.command_buffer, 0, &vertex_uniforms, @sizeOf(ShadowVertexUniforms));
+        const model_matrix: Matrix4x4 = Camera.calculateModelMatrix(transform);
+        const light_mvp = frame.light_view_projection.multiply(model_matrix);
+        const vertex_uniforms: ShadowVertexUniforms = .{ .light_mvp = light_mvp };
+        sdl.SDL_PushGPUVertexUniformData(frame.command_buffer, 0, &vertex_uniforms, @sizeOf(ShadowVertexUniforms));
 
-    sdl.SDL_DrawGPUIndexedPrimitives(frame.render_pass, mesh_buffer.index_count, 1, 0, 0, 0);
+        sdl.SDL_DrawGPUIndexedPrimitives(frame.render_pass, mesh_buffer.index_count, 1, 0, 0, 0);
+    }
 }
 
 pub fn compositeToSwapchain(

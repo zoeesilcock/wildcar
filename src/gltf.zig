@@ -341,6 +341,14 @@ fn extractTexture(
     return result;
 }
 
+fn extractAsFloat(value: std.json.Value) f32 {
+    return switch (value) {
+        .float => |f| @floatCast(f),
+        .integer => |i| @floatFromInt(i),
+        else => 0,
+    };
+}
+
 fn extractCollider(node: std.json.Value, vertices: []WorldVertex) CollisionShape {
     // Identify the colision shape type.
     const name: []const u8 = node.object.get("name").?.string;
@@ -357,24 +365,24 @@ fn extractCollider(node: std.json.Value, vertices: []WorldVertex) CollisionShape
     var transform: Transform = .{};
     if (node.object.get("translation")) |position| {
         transform.position = .{
-            @floatCast(position.array.items[X].float),
-            @floatCast(position.array.items[Y].float),
-            @floatCast(position.array.items[Z].float),
+            extractAsFloat(position.array.items[X]),
+            extractAsFloat(position.array.items[Y]),
+            extractAsFloat(position.array.items[Z]),
         };
     }
     if (node.object.get("scale")) |scale| {
         transform.scale = .{
-            @floatCast(scale.array.items[X].float),
-            @floatCast(scale.array.items[Y].float),
-            @floatCast(scale.array.items[Z].float),
+            extractAsFloat(scale.array.items[X]),
+            extractAsFloat(scale.array.items[Y]),
+            extractAsFloat(scale.array.items[Z]),
         };
     }
     if (node.object.get("rotation")) |rotation| {
         transform.rotation = .{
-            @floatCast(rotation.array.items[X].float),
-            @floatCast(rotation.array.items[Y].float),
-            @floatCast(rotation.array.items[Z].float),
-            @floatCast(rotation.array.items[W].float),
+            extractAsFloat(rotation.array.items[X]),
+            extractAsFloat(rotation.array.items[Y]),
+            extractAsFloat(rotation.array.items[Z]),
+            extractAsFloat(rotation.array.items[W]),
         };
     }
     // TODO: Handle node.matrix here if we ever see that situation.

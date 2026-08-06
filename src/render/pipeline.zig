@@ -5,7 +5,6 @@ const sdl = flint.sdl.c;
 const renderer = @import("renderer.zig");
 const buffer = @import("buffer.zig");
 const mesh = @import("mesh.zig");
-const gltf = @import("../gltf.zig");
 
 const INTERNAL: bool = @import("build_options").internal;
 const CUBE_MODEL = @import("model.zig").CUBE;
@@ -13,6 +12,7 @@ const CUBE_MODEL = @import("model.zig").CUBE;
 // Types.
 const RendererContext = renderer.RendererContext;
 const TextureResource = renderer.TextureResource;
+const ModelId = renderer.ModelId;
 const WorldVertex = mesh.WorldVertex;
 const ScreenVertex = mesh.ScreenVertex;
 
@@ -271,10 +271,11 @@ pub fn init(context: *RendererContext, allocator: std.mem.Allocator, io: std.Io)
 
     context.models = .init(allocator);
     context.model_textures = .init(allocator);
+    context.mesh_buffers = .init(allocator);
 
     context.quad_mesh_buffer = buffer.uploadMesh(context, ScreenVertex, mesh.QUAD_VERTICES, mesh.QUAD_INDICES);
 
-    context.cube_mesh_buffer = buffer.uploadWorldMesh(context, CUBE_MODEL.mesh);
+    context.mesh_buffers.put(.Cube, buffer.uploadWorldMesh(context, CUBE_MODEL.mesh)) catch @panic("OOM");
     context.models.put(.Cube, &CUBE_MODEL) catch @panic("OOM");
 
     context.white_texture = TextureResource.create(context, allocator, 1, 1, .{
@@ -288,33 +289,8 @@ pub fn init(context: *RendererContext, allocator: std.mem.Allocator, io: std.Io)
     buffer.uploadTextureRaw(context, context.white_texture.texture, &.{ 255, 255, 255, 255 }, 1, 1, 1, 1);
     context.model_textures.put(.Cube, context.white_texture) catch @panic("OOM");
 
-    if ((gltf.loadGLB("assets/models/cone.glb", allocator, io) catch @panic("Failed to load model"))) |models| {
-        context.cone_mesh_buffer = buffer.uploadWorldMesh(context, models[0].mesh);
-        context.models.put(.Cone, &models[0]) catch @panic("OOM");
-
-        if (models[0].texture) |texture| {
-            const sdl_io = sdl_utils.panicIfNull(
-                sdl.SDL_IOFromConstMem(@ptrCast(@constCast(texture.data.ptr)), texture.data.len),
-                "Failed to open texture butes.",
-            );
-            const surface: *sdl.SDL_Surface = sdl_utils.panicIfNull(
-                sdl.SDL_LoadPNG_IO(sdl_io, true),
-                "Failed to decode PNG texture",
-            );
-            defer sdl.SDL_DestroySurface(surface);
-
-            const texture_resource = TextureResource.create(
-                context,
-                allocator,
-                @intCast(surface.w),
-                @intCast(surface.h),
-                texture.getSamplerCreateInfo(),
-            );
-
-            buffer.uploadTexture(context, surface, texture_resource.texture);
-            context.model_textures.put(.Cone, texture_resource) catch @panic("OOM");
-        }
-    }
+    context.importModel("assets/models/cone.glb", .Cone, 0, allocator, io);
+    context.importModel("assets/models/truck.glb", .Truck, 0, allocator, io);
 }
 
 pub fn deinit(context: *RendererContext, allocator: std.mem.Allocator) void {
@@ -326,10 +302,13 @@ pub fn deinit(context: *RendererContext, allocator: std.mem.Allocator) void {
 
     sdl.SDL_ReleaseGPUBuffer(context.gpu_device, context.quad_mesh_buffer.vertex_buffer);
     sdl.SDL_ReleaseGPUBuffer(context.gpu_device, context.quad_mesh_buffer.index_buffer);
-    sdl.SDL_ReleaseGPUBuffer(context.gpu_device, context.cube_mesh_buffer.vertex_buffer);
-    sdl.SDL_ReleaseGPUBuffer(context.gpu_device, context.cube_mesh_buffer.index_buffer);
-    sdl.SDL_ReleaseGPUBuffer(context.gpu_device, context.cone_mesh_buffer.vertex_buffer);
-    sdl.SDL_ReleaseGPUBuffer(context.gpu_device, context.cone_mesh_buffer.index_buffer);
+
+    var mesh_buffer_iterator = context.mesh_buffers.iterator();
+    while (mesh_buffer_iterator.next()) |entry| {
+        const mesh_buffer = entry.value_ptr.*;
+        sdl.SDL_ReleaseGPUBuffer(context.gpu_device, mesh_buffer.vertex_buffer);
+        sdl.SDL_ReleaseGPUBuffer(context.gpu_device, mesh_buffer.index_buffer);
+    }
 
     var texture_iterator = context.model_textures.iterator();
     while (texture_iterator.next()) |entry| {
