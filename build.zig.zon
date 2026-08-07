@@ -9,8 +9,8 @@
             .hash = "flint-0.11.0-PsSSI1IcAgCYWFVT6DoJMig5Zia7aOBFp-Yn994g1nEZ",
         },
         .box3d = .{
-            .url = "git+https://github.com/erincatto/box3d.git#781673be801569a94be7942848755fc0baad3653",
-            .hash = "N-V-__8AAIm-sQBc9tgUV_1vXZJWH4KmI-cU-D2-DsuL_N5E",
+            .url = "git+https://github.com/erincatto/box3d.git#3fc20f5b453ba9e14cdf54ecafa87a2a4bcdf53c",
+            .hash = "N-V-__8AAPH8tgAmDhoIU7B-Ua2uN80BWwpHd63GXfUbRAUL",
         },
     },
     .paths = .{
