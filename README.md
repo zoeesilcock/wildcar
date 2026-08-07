@@ -2,6 +2,8 @@
 
 Learning about 3D rendering and car physics.
 
+![Wildcar screenshot](screenshot.png)
+
 
 ## Controls
 * P: Toggle pause.
