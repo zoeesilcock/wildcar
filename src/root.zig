@@ -483,12 +483,14 @@ pub export fn tick(state_ptr: GameLib.GameStatePtr, time: u64, delta_time: u64) 
     state.delta_time = if (state.paused) 0 else state.delta_time_actual;
 
     // Physics.
-    const time_step: f32 = 1.0 / 60.0;
-    const sub_step_count: u32 = 4;
+    if (!state.paused) {
+        const time_step: f32 = 1.0 / 60.0;
+        const sub_step_count: u32 = 4;
 
-    car.updatePhysics(state, &state.entities.items[0]);
+        car.updatePhysics(state, &state.entities.items[0]);
 
-    c.b3World_Step(state.world_id, time_step, sub_step_count);
+        c.b3World_Step(state.world_id, time_step, sub_step_count);
+    }
 
     for (state.entities.items) |*entity| {
         if (entity.is_dynamic) {
