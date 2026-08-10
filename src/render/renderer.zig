@@ -22,6 +22,7 @@ pub const ModelId = enum(u32) {
     Cube,
     Cone,
     Truck,
+    Default,
 };
 
 pub const RendererContext = struct {

@@ -272,7 +272,7 @@ pub export fn initFull3D(dependencies: GameLib.Dependencies.Full3D) GameLib.Game
 
     car.init(
         &state.entities.items[0],
-        .loadFromFile("assets/cars/truck.zon", state.allocator, state.dependencies.io.*),
+        .loadFromFile("assets/cars/default.zon", state.allocator, state.dependencies.io.*),
     );
 
     return state;
@@ -324,7 +324,7 @@ pub export fn reloaded(state_ptr: GameLib.GameStatePtr, imgui_context: ?*imgui.I
 
     car.init(
         &state.entities.items[0],
-        .loadFromFile("assets/cars/truck.zon", state.allocator, state.dependencies.io.*),
+        .loadFromFile("assets/cars/default.zon", state.allocator, state.dependencies.io.*),
     );
 }
 

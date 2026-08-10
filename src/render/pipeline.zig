@@ -291,6 +291,7 @@ pub fn init(context: *RendererContext, allocator: std.mem.Allocator, io: std.Io)
 
     context.importModel("assets/models/cone.glb", .Cone, 0, allocator, io);
     context.importModel("assets/models/truck.glb", .Truck, 0, allocator, io);
+    context.importModel("assets/models/default.glb", .Default, 0, allocator, io);
 }
 
 pub fn deinit(context: *RendererContext, allocator: std.mem.Allocator) void {
