@@ -20,9 +20,15 @@ const Matrix4x4 = math.Matrix4x4;
 
 pub const ModelId = enum(u32) {
     Cube,
-    Cone,
+    DefaultCar,
+    DefaultWheel,
     Truck,
-    Default,
+    Cone,
+};
+
+pub const ImportModel = struct {
+    id: ModelId,
+    index: u32 = 0,
 };
 
 pub const RendererContext = struct {
@@ -66,39 +72,40 @@ pub const RendererContext = struct {
     pub fn importModel(
         context: *RendererContext,
         path: []const u8,
-        model_id: ModelId,
-        model_index: u32,
+        imports: []const ImportModel,
         allocator: std.mem.Allocator,
         io: std.Io,
     ) void {
         std.log.info("Importing model: {s}", .{path});
 
         if ((gltf.loadGLB(path, allocator, io) catch @panic("Failed to load model"))) |models| {
-            const mesh_buffer = buffer.uploadWorldMesh(context, models[model_index].mesh);
-            context.mesh_buffers.put(model_id, mesh_buffer) catch @panic("OOM");
-            context.models.put(model_id, &models[model_index]) catch @panic("OOM");
+            for (imports) |import| {
+                const mesh_buffer = buffer.uploadWorldMesh(context, models[import.index].mesh);
+                context.mesh_buffers.put(import.id, mesh_buffer) catch @panic("OOM");
+                context.models.put(import.id, &models[import.index]) catch @panic("OOM");
 
-            if (models[model_index].texture) |texture| {
-                const sdl_io = sdl_utils.panicIfNull(
-                    sdl.SDL_IOFromConstMem(@ptrCast(@constCast(texture.data.ptr)), texture.data.len),
-                    "Failed to open texture butes.",
-                );
-                const surface: *sdl.SDL_Surface = sdl_utils.panicIfNull(
-                    sdl.SDL_LoadPNG_IO(sdl_io, true),
-                    "Failed to decode PNG texture",
-                );
-                defer sdl.SDL_DestroySurface(surface);
+                if (models[import.index].texture) |texture| {
+                    const sdl_io = sdl_utils.panicIfNull(
+                        sdl.SDL_IOFromConstMem(@ptrCast(@constCast(texture.data.ptr)), texture.data.len),
+                        "Failed to open texture butes.",
+                    );
+                    const surface: *sdl.SDL_Surface = sdl_utils.panicIfNull(
+                        sdl.SDL_LoadPNG_IO(sdl_io, true),
+                        "Failed to decode PNG texture",
+                    );
+                    defer sdl.SDL_DestroySurface(surface);
 
-                const texture_resource = TextureResource.create(
-                    context,
-                    allocator,
-                    @intCast(surface.w),
-                    @intCast(surface.h),
-                    texture.getSamplerCreateInfo(),
-                );
+                    const texture_resource = TextureResource.create(
+                        context,
+                        allocator,
+                        @intCast(surface.w),
+                        @intCast(surface.h),
+                        texture.getSamplerCreateInfo(),
+                    );
 
-                buffer.uploadTexture(context, surface, texture_resource.texture);
-                context.model_textures.put(model_id, texture_resource) catch @panic("OOM");
+                    buffer.uploadTexture(context, surface, texture_resource.texture);
+                    context.model_textures.put(import.id, texture_resource) catch @panic("OOM");
+                }
             }
         }
     }

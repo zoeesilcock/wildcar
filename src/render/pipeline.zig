@@ -289,9 +289,12 @@ pub fn init(context: *RendererContext, allocator: std.mem.Allocator, io: std.Io)
     buffer.uploadTextureRaw(context, context.white_texture.texture, &.{ 255, 255, 255, 255 }, 1, 1, 1, 1);
     context.model_textures.put(.Cube, context.white_texture) catch @panic("OOM");
 
-    context.importModel("assets/models/cone.glb", .Cone, 0, allocator, io);
-    context.importModel("assets/models/truck.glb", .Truck, 0, allocator, io);
-    context.importModel("assets/models/default.glb", .Default, 0, allocator, io);
+    context.importModel("assets/models/cone.glb", &.{.{ .id = .Cone }}, allocator, io);
+    context.importModel("assets/models/truck.glb", &.{.{ .id = .Truck }}, allocator, io);
+    context.importModel("assets/models/default.glb", &.{
+        .{ .id = .DefaultCar },
+        .{ .id = .DefaultWheel, .index = 1 },
+    }, allocator, io);
 }
 
 pub fn deinit(context: *RendererContext, allocator: std.mem.Allocator) void {
