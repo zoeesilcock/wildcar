@@ -22,7 +22,7 @@ const W = math.W;
 
 const SceneEntity = struct {
     position: Vector3,
-    scale: Vector3,
+    scale: Vector3 = .{ 1, 1, 1 },
     rotation: Vector3,
     color: Color = .{ 1, 1, 1, 1 },
     model_id: ModelId = .Cube,
