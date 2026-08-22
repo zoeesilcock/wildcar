@@ -10,28 +10,28 @@
             .children = .{
                 // Wheels.
                 .{
-                    .position = .{ -1.25, 0, 1 },
+                    .position = .{ -1.2375, 0.0625, 0.75 },
                     .rotation = .{ 0, 0, 0 },
                     .color = .{ 0.1, 0.1, 0.2, 1 },
                     .model_id = .DefaultWheel,
                     .has_collider = false,
                 },
                 .{
-                    .position = .{ 1.1, 0, 1 },
+                    .position = .{ 1.1, 0.0625, 0.75 },
                     .rotation = .{ 0, 0, 0 },
                     .color = .{ 0.1, 0.1, 0.2, 1 },
                     .model_id = .DefaultWheel,
                     .has_collider = false,
                 },
                 .{
-                    .position = .{ -1.25, 0, -1 },
+                    .position = .{ -1.2375, 0.0625, -0.75 },
                     .rotation = .{ 0, 3.14159, 0 },
                     .color = .{ 0.1, 0.1, 0.2, 1 },
                     .model_id = .DefaultWheel,
                     .has_collider = false,
                 },
                 .{
-                    .position = .{ 1.1, 0, -1 },
+                    .position = .{ 1.1, 0.0625, -0.75 },
                     .rotation = .{ 0, 3.14159, 0 },
                     .color = .{ 0.1, 0.1, 0.2, 1 },
                     .model_id = .DefaultWheel,
