@@ -290,7 +290,10 @@ pub fn init(context: *RendererContext, allocator: std.mem.Allocator, io: std.Io)
     context.model_textures.put(.Cube, context.white_texture) catch @panic("OOM");
 
     context.importModel("assets/models/cone.glb", &.{.{ .id = .Cone }}, allocator, io);
-    context.importModel("assets/models/truck.glb", &.{.{ .id = .Truck }}, allocator, io);
+    context.importModel("assets/models/truck.glb", &.{
+        .{ .id = .Truck },
+        .{ .id = .TruckWheel, .index = 1 },
+    }, allocator, io);
     context.importModel("assets/models/default.glb", &.{
         .{ .id = .DefaultCar },
         .{ .id = .DefaultWheel, .index = 1 },

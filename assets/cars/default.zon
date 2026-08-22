@@ -1,9 +1,11 @@
 // Car measurements:
 //
+// Model scale: 16 (1 blockbench unit = 0.0625 game units).
+//
 // Chassis size: 4x2
 // Wheel radius: 0.33
 // Wheel positions:
-// * X: 1/-1
+// * X: 1.25/-1.1
 // * Z: 1/-1
 .{
     .mass = 1000,

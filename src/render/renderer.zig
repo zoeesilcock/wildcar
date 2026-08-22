@@ -23,6 +23,7 @@ pub const ModelId = enum(u32) {
     DefaultCar,
     DefaultWheel,
     Truck,
+    TruckWheel,
     Cone,
 };
 
