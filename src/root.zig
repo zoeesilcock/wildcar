@@ -224,6 +224,7 @@ pub const Entity = struct {
     has_collider: bool = true,
     is_dynamic: bool = false,
     children: []Entity = &.{},
+    wheel_spin_angles: [4]f32 = @splat(0),
 };
 
 pub var settings: GameLib.Settings = .{

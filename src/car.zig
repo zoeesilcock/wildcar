@@ -80,6 +80,7 @@ pub const Spec = struct {
 
 pub var car_spec: Spec = undefined;
 var wheel_transforms: [4]Transform = @splat(.{});
+var wheel_roll_signs: [4]f32 = @splat(1);
 var mass_per_wheel: f32 = 0;
 
 pub fn init(car: *const Entity, spec: Spec) void {
@@ -101,12 +102,20 @@ pub fn deinit(allocator: std.mem.Allocator) void {
 }
 
 fn setWheels(wheels: *[4]Entity) void {
+    const car_forward: Vector3 = .{ -1, 0, 0 };
+    const car_up: Vector3 = .{ 0, 1, 0 };
+    const local_axle: Vector3 = .{ 0, 0, 1 };
+    const expected_roll_axis = math.crossV3(car_forward, car_up);
+
     for (wheels, 0..) |wheel, i| {
         wheel_transforms[i] = wheel.transform;
+
+        const car_space_axle: Vector3 = math.rotateVectorBy(local_axle, wheel.transform.rotation);
+        wheel_roll_signs[i] = if (math.dotV3(car_space_axle, expected_roll_axis) >= 0) -1 else 1;
     }
 }
 
-pub fn updatePhysics(state: *State, car: *const Entity) void {
+pub fn updatePhysics(state: *State, car: *Entity) void {
     const ignore_input = state.camera.mode != .Orbit;
     const body_id: c.b3BodyId = car.body_id;
     const wheel_entities: []Entity = car.children[0..4];
@@ -119,11 +128,11 @@ pub fn updatePhysics(state: *State, car: *const Entity) void {
     var has_engine_force: bool = false;
     var has_braking_force: bool = false;
     var longitudinal_force: Vector3 = @splat(0);
+    const local_forward: Vector3 = .{ -1, 0, 0 };
+    const world_forward: Vector3 = math.rotateVectorBy(local_forward, car.transform.rotation);
+    const world_backward: Vector3 = -world_forward;
+    const forward_velocity: f32 = math.dotV3(linear_velocity, world_forward);
     if (!ignore_input and (state.input.forward_button.down or state.input.backward_button.down)) {
-        const local_forward: Vector3 = .{ -1, 0, 0 };
-        const world_forward: Vector3 = math.rotateVectorBy(local_forward, car.transform.rotation);
-        const world_backward: Vector3 = -world_forward;
-        const forward_velocity: f32 = math.dotV3(linear_velocity, world_forward);
         const minimum_speed: f32 = 1;
         const forward_speed: f32 = @abs(forward_velocity);
         const low_speed_force: f32 = car_spec.mass * car_spec.max_acceleration;
@@ -209,13 +218,20 @@ pub fn updatePhysics(state: *State, car: *const Entity) void {
         // Update position of wheel mesh based on ground distance.
         wheel_entities[i].transform.position[Y] = wheel.position[Y] + (ray_length - distance);
 
-        var wheel_rotation: Quaternion = car.transform.rotation;
-        if (is_steer_wheel) {
-            wheel_rotation = math.multiplyQuaternion(car.transform.rotation, steering_rotation);
+        // Calculate the amount of spin to add to the wheel based on forward velocity.
+        const wheel_angular_velocity: f32 = forward_velocity / car_spec.wheel_radius;
+        const spin_delta: f32 = wheel_angular_velocity * state.deltaTime();
+        car.wheel_spin_angles[i] += spin_delta;
 
-            // Update rotation of wheel mesh.
-            wheel_entities[i].transform.rotation = math.multiplyQuaternion(steering_rotation, wheel.rotation);
+        // Update rotation of wheel mesh based on spin and steering.
+        const roll_rotation: Quaternion = math.eulerToQuaternion(
+            .{ 0, 0, wheel_roll_signs[i] * car.wheel_spin_angles[i] },
+        );
+        var wheel_rotation: Quaternion = math.multiplyQuaternion(wheel.rotation, roll_rotation);
+        if (is_steer_wheel) {
+            wheel_rotation = math.multiplyQuaternion(steering_rotation, wheel_rotation);
         }
+        wheel_entities[i].transform.rotation = wheel_rotation;
 
         if (cast.hit) {
             const rest_length: f32 = ray_length;
