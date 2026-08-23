@@ -83,11 +83,13 @@ var wheel_transforms: [4]Transform = @splat(.{});
 var wheel_roll_signs: [4]f32 = @splat(1);
 var mass_per_wheel: f32 = 0;
 
-pub fn init(car: *const Entity, spec: Spec) void {
+pub fn init(car: *const Entity, spec: Spec, first_load: bool) void {
     car_spec = spec;
-
     mass_per_wheel = car_spec.mass / @as(f32, @floatFromInt(car_spec.wheel_count));
-    setWheels(car.children[0..4]);
+
+    if (first_load) {
+        setWheels(car.children[0..4]);
+    }
 
     // Set mass.
     var mass_data = c.b3Body_GetMassData(car.body_id);
