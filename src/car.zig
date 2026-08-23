@@ -22,8 +22,8 @@ pub const Spec = struct {
     mass: f32, // Kg.
 
     engine_power: f32, // kW.
-    max_acceleration: f32, // m/s².
-    max_braking_deceleration: f32, // m/s².
+    max_acceleration: f32, // M/s².
+    max_braking_deceleration: f32, // M/s².
 
     wheel_count: i32 = 4,
     wheel_radius: f32, // M.
@@ -32,8 +32,13 @@ pub const Spec = struct {
     max_steering_angle: f32,
     lateral_stiffness: f32, // N / (m/s).
     friction_coefficient: f32,
-    suspension_parked_compression: f32,
+    suspension_max_extension: f32, // M.
+    suspension_max_compression: f32, // M.
+    suspension_stiffness: f32, // N / m.
     suspension_damping_ratio: f32,
+    suspension_bump_stop_start: f32, // M.
+    suspension_bump_stop_stiffness: f32, // N / m.
+    suspension_bump_stop_damping_ratio: f32,
 
     pub fn loadFromFile(path: []const u8, allocator: std.mem.Allocator, io: std.Io) Spec {
         var spec: Spec = undefined;
@@ -143,7 +148,8 @@ pub fn updatePhysics(state: *State, car: *Entity) void {
         if (state.input.forward_button.down) {
             if (forward_velocity < 0) {
                 has_braking_force = true;
-                longitudinal_force = world_forward * @as(Vector3, @splat(car_spec.mass * car_spec.max_braking_deceleration));
+                longitudinal_force =
+                    world_forward * @as(Vector3, @splat(car_spec.mass * car_spec.max_braking_deceleration));
             } else {
                 has_engine_force = true;
                 longitudinal_force = world_forward * @as(Vector3, @splat(engine_force));
@@ -153,7 +159,8 @@ pub fn updatePhysics(state: *State, car: *Entity) void {
         if (state.input.backward_button.down) {
             if (forward_velocity > 0) {
                 has_braking_force = true;
-                longitudinal_force = world_backward * @as(Vector3, @splat(car_spec.mass * car_spec.max_braking_deceleration));
+                longitudinal_force =
+                    world_backward * @as(Vector3, @splat(car_spec.mass * car_spec.max_braking_deceleration));
             } else {
                 has_engine_force = true;
                 longitudinal_force = world_backward * @as(Vector3, @splat(engine_force));
@@ -176,9 +183,11 @@ pub fn updatePhysics(state: *State, car: *Entity) void {
     const steering_angle: f32 = steering_input * car_spec.max_steering_angle;
     const steering_rotation: Quaternion = math.eulerToQuaternion(.{ 0, steering_angle, 0 });
 
-    const suspension_stiffness: f32 = (mass_per_wheel * game.GRAVITY) / car_spec.suspension_parked_compression;
-    const suspension_critical_damping = 2 * @sqrt(suspension_stiffness * mass_per_wheel);
+    // Calculate suspension damping.
+    const suspension_critical_damping = 2 * @sqrt(car_spec.suspension_stiffness * mass_per_wheel);
     const suspension_damping_coefficient = car_spec.suspension_damping_ratio * suspension_critical_damping;
+    const bump_stop_critical_damping = 2 * @sqrt(car_spec.suspension_bump_stop_stiffness * mass_per_wheel);
+    const bump_stop_damping_coefficient = car_spec.suspension_bump_stop_damping_ratio * bump_stop_critical_damping;
 
     for (wheel_transforms, 0..) |wheel, i| {
         const is_drive_wheel: bool = car_spec.drive_wheels[0] == i or car_spec.drive_wheels[1] == i;
@@ -194,7 +203,7 @@ pub fn updatePhysics(state: *State, car: *Entity) void {
         const epsilon_length: f32 = 0.01;
         const epsilon: Vector3 = world_down * @as(Vector3, @splat(epsilon_length)); // Avoid starting in the ground.
 
-        const ray_length: f32 = car_spec.wheel_radius + epsilon_length;
+        const ray_length: f32 = car_spec.wheel_radius + car_spec.suspension_max_extension;
         const ray_origin = wheel_origin - epsilon;
         const ray_translation: Vector3 = world_down * @as(Vector3, @splat(ray_length));
 
@@ -218,7 +227,13 @@ pub fn updatePhysics(state: *State, car: *Entity) void {
         }
 
         // Update position of wheel mesh based on ground distance.
-        wheel_entities[i].transform.position[Y] = wheel.position[Y] + (ray_length - distance);
+        const displacement_from_parked: f32 = car_spec.wheel_radius - distance;
+        const clamped_displacement_from_parked: f32 = std.math.clamp(
+            displacement_from_parked,
+            -car_spec.suspension_max_extension,
+            car_spec.suspension_max_compression,
+        );
+        wheel_entities[i].transform.position[Y] = wheel.position[Y] + clamped_displacement_from_parked;
 
         // Calculate the amount of spin to add to the wheel based on forward velocity.
         const wheel_angular_velocity: f32 = forward_velocity / car_spec.wheel_radius;
@@ -229,7 +244,6 @@ pub fn updatePhysics(state: *State, car: *Entity) void {
         const roll_rotation: Quaternion = math.eulerToQuaternion(
             .{ 0, 0, wheel_roll_signs[i] * car.wheel_spin_angles[i] },
         );
-
         var wheel_physics_rotation: Quaternion = car.transform.rotation;
         var wheel_visual_rotation: Quaternion = math.multiplyQuaternion(wheel.rotation, roll_rotation);
         if (is_steer_wheel) {
@@ -239,21 +253,34 @@ pub fn updatePhysics(state: *State, car: *Entity) void {
         wheel_entities[i].transform.rotation = wheel_visual_rotation;
 
         if (cast.hit) {
-            const rest_length: f32 = ray_length;
-            const compression: f32 = rest_length - distance;
-
             // Calculate velocity at wheel origin.
             const offset: Vector3 = wheel_origin - center_of_mass;
             const rotational_velocity: Vector3 = math.crossV3(angular_velocity, offset);
             const point_velocity: Vector3 = linear_velocity + rotational_velocity;
             const suspension_velocity: f32 = math.dotV3(point_velocity, world_down);
 
+            // Calculate bump stop force.
+            const bump_stop_range: f32 = car_spec.suspension_max_compression - car_spec.suspension_bump_stop_start;
+            const bump_stop_compression: f32 = std.math.clamp(
+                displacement_from_parked - car_spec.suspension_bump_stop_start,
+                0,
+                bump_stop_range,
+            );
+            const bump_stop_force: f32 = car_spec.suspension_bump_stop_stiffness * bump_stop_compression;
+            const bump_stop_damping_force: f32 = if (bump_stop_compression > 0)
+                bump_stop_damping_coefficient * suspension_velocity
+            else
+                0;
+
             // Calculate spring force.
-            const spring_force: f32 = suspension_stiffness * @max(compression, 0);
+            const parked_spring_force: f32 = mass_per_wheel * game.GRAVITY;
+            const spring_force: f32 = parked_spring_force +
+                car_spec.suspension_stiffness * clamped_displacement_from_parked +
+                bump_stop_force;
 
             // Apply damping on the spring force.
             const damping_force: f32 = suspension_damping_coefficient * suspension_velocity;
-            const support_force: f32 = @max(spring_force + damping_force, 0);
+            const support_force: f32 = @max(spring_force + damping_force + bump_stop_damping_force, 0);
 
             // Calculate and apply the final force for the wheel.
             const force: Vector3 = -world_down * @as(Vector3, @splat(support_force));

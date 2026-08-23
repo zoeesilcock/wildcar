@@ -18,6 +18,11 @@
     .max_steering_angle = 0.5,
     .lateral_stiffness = 1000,
     .friction_coefficient = 1.0,
-    .suspension_parked_compression = 0.05,
+    .suspension_max_extension = 0.1,
+    .suspension_max_compression = 0.07,
+    .suspension_stiffness = 50000,
     .suspension_damping_ratio = 0.3,
+    .suspension_bump_stop_start = 0.05,
+    .suspension_bump_stop_stiffness = 300000,
+    .suspension_bump_stop_damping_ratio = 0.05,
 }
