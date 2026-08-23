@@ -92,6 +92,9 @@ pub fn load(state: *State) void {
 }
 
 pub fn unload(state: *State) void {
+    for (state.entities.items) |*entity| {
+        entity.deinit(state.allocator);
+    }
     state.entities.clearRetainingCapacity();
 }
 

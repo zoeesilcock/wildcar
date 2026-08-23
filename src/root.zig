@@ -225,6 +225,13 @@ pub const Entity = struct {
     is_dynamic: bool = false,
     children: []Entity = &.{},
     wheel_spin_angles: [4]f32 = @splat(0),
+
+    pub fn deinit(self: *Entity, allocator: std.mem.Allocator) void {
+        if (self.children.len > 0) {
+            allocator.free(self.children);
+            self.children = &.{};
+        }
+    }
 };
 
 pub var settings: GameLib.Settings = .{
