@@ -2,6 +2,8 @@
 
 Learning about 3D rendering and car physics.
 
+This project was made possible by [Flint](https://github.com/zoeesilcock/flint) which provides the game loop, SDL, Imgui, hot reloading, and tools for building editors among other things.
+
 ![Wildcar screenshot](screenshot.png)
 
 
