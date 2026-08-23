@@ -227,11 +227,14 @@ pub fn updatePhysics(state: *State, car: *Entity) void {
         const roll_rotation: Quaternion = math.eulerToQuaternion(
             .{ 0, 0, wheel_roll_signs[i] * car.wheel_spin_angles[i] },
         );
-        var wheel_rotation: Quaternion = math.multiplyQuaternion(wheel.rotation, roll_rotation);
+
+        var wheel_physics_rotation: Quaternion = car.transform.rotation;
+        var wheel_visual_rotation: Quaternion = math.multiplyQuaternion(wheel.rotation, roll_rotation);
         if (is_steer_wheel) {
-            wheel_rotation = math.multiplyQuaternion(steering_rotation, wheel_rotation);
+            wheel_physics_rotation = math.multiplyQuaternion(wheel_physics_rotation, steering_rotation);
+            wheel_visual_rotation = math.multiplyQuaternion(steering_rotation, wheel_visual_rotation);
         }
-        wheel_entities[i].transform.rotation = wheel_rotation;
+        wheel_entities[i].transform.rotation = wheel_visual_rotation;
 
         if (cast.hit) {
             const rest_length: f32 = ray_length;
@@ -257,7 +260,7 @@ pub fn updatePhysics(state: *State, car: *Entity) void {
             c.b3Body_ApplyForce(body_id, b3.vecToB3(force), b3.vecToB3(wheel_origin), false);
 
             // Calculate lateral force.
-            const wheel_forward: Vector3 = math.rotateVectorBy(.{ -1, 0, 0 }, wheel_rotation);
+            const wheel_forward: Vector3 = math.rotateVectorBy(.{ -1, 0, 0 }, wheel_physics_rotation);
             const wheel_lateral: Vector3 = math.crossV3(wheel_forward, world_down);
             const lateral_velocity: f32 = math.dotV3(point_velocity, wheel_lateral);
 
