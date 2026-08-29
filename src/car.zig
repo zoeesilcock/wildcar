@@ -9,7 +9,6 @@ const b3 = @import("b3.zig");
 const INTERNAL: bool = @import("build_options").internal;
 
 // Types.
-const State = game.State;
 const Entity = game.Entity;
 const Transform = math.Transform;
 const Quaternion = math.Quaternion;
@@ -83,20 +82,41 @@ pub const Spec = struct {
     }
 };
 
-pub var car_spec: Spec = undefined;
-var wheel_transforms: [4]Transform = @splat(.{});
-var wheel_roll_signs: [4]f32 = @splat(1);
-var mass_per_wheel: f32 = 0;
+pub const State = struct {
+    wheel_transforms: [4]Transform = @splat(.{}),
+    wheel_roll_signs: [4]f32 = @splat(1),
+    wheel_spin_angles: [4]f32 = @splat(0),
+    mass_per_wheel: f32 = 0,
 
-pub fn init(car: *const Entity, spec: Spec, first_load: bool) void {
+    fn setWheels(self: *State, wheels: *[4]Entity) void {
+        const car_forward: Vector3 = .{ -1, 0, 0 };
+        const car_up: Vector3 = .{ 0, 1, 0 };
+        const local_axle: Vector3 = .{ 0, 0, 1 };
+        const expected_roll_axis = math.crossV3(car_forward, car_up);
+
+        for (wheels, 0..) |wheel, i| {
+            self.wheel_transforms[i] = wheel.transform;
+
+            const car_space_axle: Vector3 = math.rotateVectorBy(local_axle, wheel.transform.rotation);
+            self.wheel_roll_signs[i] = if (math.dotV3(car_space_axle, expected_roll_axis) >= 0) -1 else 1;
+        }
+    }
+};
+
+pub var car_spec: Spec = undefined;
+
+pub fn init(car: *Entity, spec: Spec, first_load: bool) void {
     car_spec = spec;
-    mass_per_wheel = car_spec.mass / @as(f32, @floatFromInt(car_spec.wheel_count));
 
     if (first_load) {
-        setWheels(car.children[0..4]);
+        car.car_state = .{};
+        car.car_state.?.setWheels(car.children[0..4]);
     }
 
-    // Set mass.
+    // Set wheel masses.
+    car.car_state.?.mass_per_wheel = car_spec.mass / @as(f32, @floatFromInt(car_spec.wheel_count));
+
+    // Set body mass.
     var mass_data = c.b3Body_GetMassData(car.body_id);
     const mass_scale: f32 = car_spec.mass / mass_data.mass;
     mass_data.mass = car_spec.mass;
@@ -108,21 +128,8 @@ pub fn deinit(allocator: std.mem.Allocator) void {
     std.zon.parse.free(allocator, car_spec);
 }
 
-fn setWheels(wheels: *[4]Entity) void {
-    const car_forward: Vector3 = .{ -1, 0, 0 };
-    const car_up: Vector3 = .{ 0, 1, 0 };
-    const local_axle: Vector3 = .{ 0, 0, 1 };
-    const expected_roll_axis = math.crossV3(car_forward, car_up);
-
-    for (wheels, 0..) |wheel, i| {
-        wheel_transforms[i] = wheel.transform;
-
-        const car_space_axle: Vector3 = math.rotateVectorBy(local_axle, wheel.transform.rotation);
-        wheel_roll_signs[i] = if (math.dotV3(car_space_axle, expected_roll_axis) >= 0) -1 else 1;
-    }
-}
-
-pub fn updatePhysics(state: *State, car: *Entity) void {
+pub fn updatePhysics(state: *game.State, car: *Entity) void {
+    var car_state: *State = &car.car_state.?;
     const ignore_input = state.camera.mode != .Orbit;
     const body_id: c.b3BodyId = car.body_id;
     const wheel_entities: []Entity = car.children[0..4];
@@ -184,12 +191,12 @@ pub fn updatePhysics(state: *State, car: *Entity) void {
     const steering_rotation: Quaternion = math.eulerToQuaternion(.{ 0, steering_angle, 0 });
 
     // Calculate suspension damping.
-    const suspension_critical_damping = 2 * @sqrt(car_spec.suspension_stiffness * mass_per_wheel);
+    const suspension_critical_damping = 2 * @sqrt(car_spec.suspension_stiffness * car_state.mass_per_wheel);
     const suspension_damping_coefficient = car_spec.suspension_damping_ratio * suspension_critical_damping;
-    const bump_stop_critical_damping = 2 * @sqrt(car_spec.suspension_bump_stop_stiffness * mass_per_wheel);
+    const bump_stop_critical_damping = 2 * @sqrt(car_spec.suspension_bump_stop_stiffness * car_state.mass_per_wheel);
     const bump_stop_damping_coefficient = car_spec.suspension_bump_stop_damping_ratio * bump_stop_critical_damping;
 
-    for (wheel_transforms, 0..) |wheel, i| {
+    for (car_state.wheel_transforms, 0..) |wheel, i| {
         const is_drive_wheel: bool = car_spec.drive_wheels[0] == i or car_spec.drive_wheels[1] == i;
         const is_steer_wheel: bool = car_spec.steer_wheels[0] == i or car_spec.steer_wheels[1] == i;
 
@@ -238,11 +245,11 @@ pub fn updatePhysics(state: *State, car: *Entity) void {
         // Calculate the amount of spin to add to the wheel based on forward velocity.
         const wheel_angular_velocity: f32 = forward_velocity / car_spec.wheel_radius;
         const spin_delta: f32 = wheel_angular_velocity * state.deltaTime();
-        car.wheel_spin_angles[i] += spin_delta;
+        car_state.wheel_spin_angles[i] += spin_delta;
 
         // Update rotation of wheel mesh based on spin and steering.
         const roll_rotation: Quaternion = math.eulerToQuaternion(
-            .{ 0, 0, wheel_roll_signs[i] * car.wheel_spin_angles[i] },
+            .{ 0, 0, car_state.wheel_roll_signs[i] * car_state.wheel_spin_angles[i] },
         );
         var wheel_physics_rotation: Quaternion = car.transform.rotation;
         var wheel_visual_rotation: Quaternion = math.multiplyQuaternion(wheel.rotation, roll_rotation);
@@ -273,7 +280,7 @@ pub fn updatePhysics(state: *State, car: *Entity) void {
                 0;
 
             // Calculate spring force.
-            const parked_spring_force: f32 = mass_per_wheel * game.GRAVITY;
+            const parked_spring_force: f32 = car_state.mass_per_wheel * game.GRAVITY;
             const spring_force: f32 = parked_spring_force +
                 car_spec.suspension_stiffness * clamped_displacement_from_parked +
                 bump_stop_force;
@@ -286,7 +293,7 @@ pub fn updatePhysics(state: *State, car: *Entity) void {
             const force: Vector3 = -world_down * @as(Vector3, @splat(support_force));
 
             // Apply suspension force to car.
-            c.b3Body_ApplyForce(body_id, b3.vecToB3(force), b3.vecToB3(wheel_origin), false);
+            c.b3Body_ApplyForce(body_id, b3.vecToB3(force), b3.vecToB3(wheel_origin), true);
 
             // Calculate lateral force.
             const wheel_forward: Vector3 = math.rotateVectorBy(.{ -1, 0, 0 }, wheel_physics_rotation);
@@ -310,7 +317,7 @@ pub fn updatePhysics(state: *State, car: *Entity) void {
                 total_force *= @as(Vector3, @splat(scale));
             }
 
-            c.b3Body_ApplyForce(body_id, b3.vecToB3(total_force), b3.vecToB3(wheel_origin), false);
+            c.b3Body_ApplyForce(body_id, b3.vecToB3(total_force), b3.vecToB3(wheel_origin), true);
         }
     }
 }

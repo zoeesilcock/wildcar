@@ -224,7 +224,7 @@ pub const Entity = struct {
     has_collider: bool = true,
     is_dynamic: bool = false,
     children: []Entity = &.{},
-    wheel_spin_angles: [4]f32 = @splat(0),
+    car_state: ?car.State = null,
 
     pub fn deinit(self: *Entity, allocator: std.mem.Allocator) void {
         if (self.children.len > 0) {
