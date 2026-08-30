@@ -264,6 +264,7 @@ pub fn loadGLB(path: []const u8, allocator: std.mem.Allocator, io: std.Io) !?[]c
                                         .vertices = vertices,
                                         .indices = indices,
                                     },
+                                    .transform = extractTransformFromNode(node),
                                     .texture = extractTexture(json.value, bin_chunk, material_index, allocator),
                                 }) catch @panic("OOM");
                             }
@@ -349,19 +350,7 @@ fn extractAsFloat(value: std.json.Value) f32 {
     };
 }
 
-fn extractCollider(node: std.json.Value, vertices: []WorldVertex) CollisionShape {
-    // Identify the colision shape type.
-    const name: []const u8 = node.object.get("name").?.string;
-    var name_parts = std.mem.splitScalar(u8, name, '.');
-    var shape_type: CollisionShapeType = .Box;
-    while (name_parts.next()) |part| {
-        if (std.mem.eql(u8, part, "box")) {
-            shape_type = .Box;
-            break;
-        }
-    }
-
-    // Extract transform from node.
+fn extractTransformFromNode(node: std.json.Value) Transform {
     var transform: Transform = .{};
     if (node.object.get("translation")) |position| {
         transform.position = .{
@@ -386,6 +375,24 @@ fn extractCollider(node: std.json.Value, vertices: []WorldVertex) CollisionShape
         };
     }
     // TODO: Handle node.matrix here if we ever see that situation.
+
+    return transform;
+}
+
+fn extractCollider(node: std.json.Value, vertices: []WorldVertex) CollisionShape {
+    // Identify the colision shape type.
+    const name: []const u8 = node.object.get("name").?.string;
+    var name_parts = std.mem.splitScalar(u8, name, '.');
+    var shape_type: CollisionShapeType = .Box;
+    while (name_parts.next()) |part| {
+        if (std.mem.eql(u8, part, "box")) {
+            shape_type = .Box;
+            break;
+        }
+    }
+
+    // Extract transform from node.
+    var transform: Transform = extractTransformFromNode(node);
 
     // Calculate extents of box.
     var min: Vector3 = .{ vertices[0].x, vertices[0].y, vertices[0].z };

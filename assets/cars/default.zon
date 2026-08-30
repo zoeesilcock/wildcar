@@ -1,20 +1,37 @@
-// Car measurements:
-//
 // Model scale: 16 (1 blockbench unit = 0.0625 game units).
-//
-// Chassis size: 4x2
-// Wheel radius: 0.28125
-// Wheel positions:
-// * X: 1.2375/-1.1
-// * Z: 0.75/-0.75
 .{
+    .model_id = .DefaultCar,
+    .model_name = "default.glb",
+    .wheels = .{
+        .{
+            .model_id = .DefaultWheel1,
+            .model_index = 1,
+            .radius = 0.28125,
+            .steer = true,
+        },
+        .{
+            .model_id = .DefaultWheel2,
+            .model_index = 2,
+            .radius = 0.28125,
+            .steer = true,
+        },
+        .{
+            .model_id = .DefaultWheel3,
+            .model_index = 3,
+            .radius = 0.28125,
+            .drive = true,
+        },
+        .{
+            .model_id = .DefaultWheel4,
+            .model_index = 4,
+            .radius = 0.28125,
+            .drive = true,
+        },
+    },
     .mass = 1000,
     .engine_power = 75,
     .max_acceleration = 8,
     .max_braking_deceleration = 10,
-    .wheel_radius = 0.28125,
-    .drive_wheels = .{ 1, 3 },
-    .steer_wheels = .{ 0, 2 },
     .max_steering_angle = 0.5,
     .lateral_stiffness = 1000,
     .friction_coefficient = 1.0,

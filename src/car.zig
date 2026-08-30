@@ -3,6 +3,7 @@ const c = @import("c");
 const flint = @import("flint");
 const math = @import("math");
 const game = @import("root.zig");
+const renderer = @import("render/renderer.zig");
 const debug_shapes = if (INTERNAL) @import("debug_shapes.zig") else undefined;
 const b3 = @import("b3.zig");
 
@@ -17,17 +18,25 @@ const X = math.X;
 const Y = math.Y;
 const Z = math.Z;
 
-pub const Spec = struct {
-    mass: f32, // Kg.
+const WheelSpec = struct {
+    model_id: renderer.ModelId,
+    model_index: u32,
+    radius: f32, // M.
+    drive: bool = false,
+    steer: bool = false,
+};
 
+pub const Spec = struct {
+    model_id: renderer.ModelId,
+    model_name: []const u8,
+
+    wheels: []const WheelSpec,
+
+    mass: f32, // Kg.
     engine_power: f32, // kW.
     max_acceleration: f32, // M/s².
     max_braking_deceleration: f32, // M/s².
 
-    wheel_count: i32 = 4,
-    wheel_radius: f32, // M.
-    drive_wheels: []const usize,
-    steer_wheels: []const usize,
     max_steering_angle: f32,
     lateral_stiffness: f32, // N / (m/s).
     friction_coefficient: f32,
@@ -39,8 +48,20 @@ pub const Spec = struct {
     suspension_bump_stop_stiffness: f32, // N / m.
     suspension_bump_stop_damping_ratio: f32,
 
-    pub fn loadFromFile(path: []const u8, allocator: std.mem.Allocator, io: std.Io) Spec {
-        var spec: Spec = undefined;
+    pub fn driveWheelCount(self: *const Spec) u32 {
+        var result: u32 = 0;
+        for (self.wheels) |wheel| {
+            if (wheel.drive) {
+                result += 1;
+            }
+        }
+        return result;
+    }
+
+    pub fn loadFromFile(path: []const u8, allocator: std.mem.Allocator, io: std.Io) *Spec {
+        const spec: *Spec = allocator.create(Spec) catch @panic("OOM");
+        errdefer allocator.destroy(spec);
+
         if (flint.fs.getFilePathRelative(io, path, allocator)) |relative_path| {
             defer allocator.free(relative_path);
 
@@ -52,11 +73,17 @@ pub const Spec = struct {
                 @panic("Failed to read car spec file");
             defer allocator.free(spec_slice);
 
-            spec = std.zon.parse.fromSliceAlloc(Spec, allocator, spec_slice, null, .{}) catch
+            var diagnostics: std.zon.parse.Diagnostics = .{};
+            defer diagnostics.deinit(allocator);
+
+            spec.* = std.zon.parse.fromSliceAlloc(Spec, allocator, spec_slice, &diagnostics, .{}) catch {
+                std.log.err("Errors in car spec .zon file:\n{f}", .{diagnostics});
                 @panic("Failed to parse car spec .zon file");
+            };
         } else |_| {
             @panic("Failed to open car spec file for reading");
         }
+
         return spec;
     }
 
@@ -79,6 +106,27 @@ pub const Spec = struct {
         } else |_| {
             @panic("Failed to open car spec file for saving");
         }
+    }
+
+    pub fn loadModel(
+        self: *const Spec,
+        context: *renderer.RendererContext,
+        allocator: std.mem.Allocator,
+        io: std.Io,
+    ) void {
+        var import_array = std.ArrayList(renderer.ImportModel).initCapacity(allocator, 5) catch @panic("OOM");
+
+        import_array.append(allocator, .{ .id = self.model_id }) catch @panic("OOM");
+        for (self.wheels) |wheel| {
+            import_array.append(allocator, .{ .id = wheel.model_id, .index = wheel.model_index }) catch @panic("OOM");
+        }
+
+        const imports: []renderer.ImportModel = import_array.toOwnedSlice(allocator) catch @panic("OOM");
+        defer allocator.free(imports);
+
+        const model_path = std.fmt.allocPrint(allocator, "assets/models/{s}", .{self.model_name}) catch @panic("OOM");
+        defer allocator.free(model_path);
+        context.importModel(model_path, imports, allocator, io);
     }
 };
 
@@ -103,34 +151,58 @@ pub const State = struct {
     }
 };
 
-pub var car_spec: Spec = undefined;
-
-pub fn init(car: *Entity, spec: Spec, first_load: bool) void {
-    car_spec = spec;
-
-    if (first_load) {
+pub fn init(state: *game.State, car: *Entity, car_spec_name: []const u8) void {
+    if (car.car_state == null) {
         car.car_state = .{};
-        car.car_state.?.setWheels(car.children[0..4]);
     }
 
-    // Set wheel masses.
-    car.car_state.?.mass_per_wheel = car_spec.mass / @as(f32, @floatFromInt(car_spec.wheel_count));
+    // Load the car spec.
+    const spec_path = std.fmt.allocPrint(state.allocator, "assets/cars/{s}", .{car_spec_name}) catch @panic("OOM");
+    defer state.allocator.free(spec_path);
+    car.car_spec = .loadFromFile(spec_path, state.allocator, state.dependencies.io.*);
 
-    // Set body mass.
+    // Load the car model.
+    car.car_spec.?.loadModel(&state.renderer, state.allocator, state.dependencies.io.*);
+
+    // Spawn the wheels.
+    if (car.children.len > 0) {
+        // TODO: If we want to support children from the scene we will need to merge them with the wheels here instead.
+        state.allocator.free(car.children);
+    }
+    car.children = state.allocator.alloc(Entity, car.car_spec.?.wheels.len) catch
+        @panic("Failed to allocate wheel entities");
+    for (car.car_spec.?.wheels, 0..) |wheel, i| {
+        if (state.renderer.models.get(wheel.model_id)) |model| {
+            car.children[i] = .{
+                .transform = model.transform,
+                .has_collider = false,
+                .model_id = wheel.model_id,
+                .color = .{ 1, 1, 1, 1 },
+            };
+        }
+    }
+
+    // Set wheel state.
+    car.car_state.?.setWheels(car.children[0..4]);
+    car.car_state.?.mass_per_wheel = car.car_spec.?.mass / @as(f32, @floatFromInt(car.car_spec.?.wheels.len));
+}
+
+pub fn initPhysics(car: *Entity) void {
     var mass_data = c.b3Body_GetMassData(car.body_id);
-    const mass_scale: f32 = car_spec.mass / mass_data.mass;
-    mass_data.mass = car_spec.mass;
+    const mass_scale: f32 = car.car_spec.?.mass / mass_data.mass;
+    mass_data.mass = car.car_spec.?.mass;
     mass_data.inertia = c.b3MulSM(mass_scale, mass_data.inertia);
     c.b3Body_SetMassData(car.body_id, mass_data);
 }
 
-pub fn deinit(allocator: std.mem.Allocator) void {
-    std.zon.parse.free(allocator, car_spec);
-}
-
 pub fn updatePhysics(state: *game.State, car: *Entity) void {
     var car_state: *State = &car.car_state.?;
-    const ignore_input = state.camera.mode != .Orbit;
+    const car_spec: *const Spec = car.car_spec.?;
+    const current_car = if (state.car_index) |car_index| &state.entities.items[car_index] else null;
+    const ignore_input = state.camera.mode != .Orbit or
+        // TODO: Temporary until we add an ID to the entity since this doesn't handle the case of multiple
+        // cars of the same type.
+        (current_car != null and car.model_id != current_car.?.model_id);
     const body_id: c.b3BodyId = car.body_id;
     const wheel_entities: []Entity = car.children[0..4];
 
@@ -175,9 +247,9 @@ pub fn updatePhysics(state: *game.State, car: *Entity) void {
         }
 
         if (has_engine_force) {
-            longitudinal_force /= @as(Vector3, @splat(@floatFromInt(car_spec.drive_wheels.len)));
+            longitudinal_force /= @as(Vector3, @splat(@floatFromInt(car_spec.driveWheelCount())));
         } else if (has_braking_force) {
-            longitudinal_force /= @as(Vector3, @splat(@floatFromInt(car_spec.wheel_count)));
+            longitudinal_force /= @as(Vector3, @splat(@floatFromInt(car_spec.wheels.len)));
         }
     }
 
@@ -197,8 +269,9 @@ pub fn updatePhysics(state: *game.State, car: *Entity) void {
     const bump_stop_damping_coefficient = car_spec.suspension_bump_stop_damping_ratio * bump_stop_critical_damping;
 
     for (car_state.wheel_transforms, 0..) |wheel, i| {
-        const is_drive_wheel: bool = car_spec.drive_wheels[0] == i or car_spec.drive_wheels[1] == i;
-        const is_steer_wheel: bool = car_spec.steer_wheels[0] == i or car_spec.steer_wheels[1] == i;
+        const wheel_spec: WheelSpec = car_spec.wheels[i];
+        const is_drive_wheel: bool = wheel_spec.drive;
+        const is_steer_wheel: bool = wheel_spec.steer;
 
         const wheel_transform = wheel.relativeTo(car.transform);
         const wheel_origin = wheel_transform.position;
@@ -210,7 +283,7 @@ pub fn updatePhysics(state: *game.State, car: *Entity) void {
         const epsilon_length: f32 = 0.01;
         const epsilon: Vector3 = world_down * @as(Vector3, @splat(epsilon_length)); // Avoid starting in the ground.
 
-        const ray_length: f32 = car_spec.wheel_radius + car_spec.suspension_max_extension;
+        const ray_length: f32 = wheel_spec.radius + car_spec.suspension_max_extension;
         const ray_origin = wheel_origin - epsilon;
         const ray_translation: Vector3 = world_down * @as(Vector3, @splat(ray_length));
 
@@ -234,7 +307,7 @@ pub fn updatePhysics(state: *game.State, car: *Entity) void {
         }
 
         // Update position of wheel mesh based on ground distance.
-        const displacement_from_parked: f32 = car_spec.wheel_radius - distance;
+        const displacement_from_parked: f32 = wheel_spec.radius - distance;
         const clamped_displacement_from_parked: f32 = std.math.clamp(
             displacement_from_parked,
             -car_spec.suspension_max_extension,
@@ -243,7 +316,7 @@ pub fn updatePhysics(state: *game.State, car: *Entity) void {
         wheel_entities[i].transform.position[Y] = wheel.position[Y] + clamped_displacement_from_parked;
 
         // Calculate the amount of spin to add to the wheel based on forward velocity.
-        const wheel_angular_velocity: f32 = forward_velocity / car_spec.wheel_radius;
+        const wheel_angular_velocity: f32 = forward_velocity / wheel_spec.radius;
         const spin_delta: f32 = wheel_angular_velocity * state.deltaTime();
         car_state.wheel_spin_angles[i] += spin_delta;
 

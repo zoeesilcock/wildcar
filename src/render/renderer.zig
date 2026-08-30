@@ -21,9 +21,15 @@ const Matrix4x4 = math.Matrix4x4;
 pub const ModelId = enum(u32) {
     Cube,
     DefaultCar,
-    DefaultWheel,
+    DefaultWheel1,
+    DefaultWheel2,
+    DefaultWheel3,
+    DefaultWheel4,
     Truck,
-    TruckWheel,
+    TruckWheel1,
+    TruckWheel2,
+    TruckWheel3,
+    TruckWheel4,
     Cone,
 };
 
@@ -88,7 +94,7 @@ pub const RendererContext = struct {
                 if (models[import.index].texture) |texture| {
                     const sdl_io = sdl_utils.panicIfNull(
                         sdl.SDL_IOFromConstMem(@ptrCast(@constCast(texture.data.ptr)), texture.data.len),
-                        "Failed to open texture butes.",
+                        "Failed to open texture bytes.",
                     );
                     const surface: *sdl.SDL_Surface = sdl_utils.panicIfNull(
                         sdl.SDL_LoadPNG_IO(sdl_io, true),

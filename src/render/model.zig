@@ -9,6 +9,7 @@ const WorldMesh = mesh.WorldMesh;
 
 pub const Model = struct {
     mesh: WorldMesh,
+    transform: Transform = .{},
     colliders: []const CollisionShape = &.{},
     texture: ?Texture = null,
 };

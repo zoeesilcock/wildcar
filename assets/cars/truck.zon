@@ -1,17 +1,39 @@
-// Car measurements:
 // Model scale: 16x2 (1 blockbench unit = 0.125 game units).
-//
-// Wheel positions:
-// * X: 1.3/-1.2
-// * Z: 1/-1
 .{
-    .mass = 1000,
-    .engine_power = 75,
+    .model_id = .Truck,
+    .model_name = "truck.glb",
+    .wheels = .{
+        .{
+            .model_id = .TruckWheel1,
+            .model_index = 1,
+            .radius = 0.5,
+            .steer = true,
+            .drive = true,
+        },
+        .{
+            .model_id = .TruckWheel2,
+            .model_index = 2,
+            .radius = 0.5,
+            .steer = true,
+            .drive = true,
+        },
+        .{
+            .model_id = .TruckWheel3,
+            .model_index = 3,
+            .radius = 0.5,
+            .drive = true,
+        },
+        .{
+            .model_id = .TruckWheel4,
+            .model_index = 4,
+            .radius = 0.5,
+            .drive = true,
+        },
+    },
+    .mass = 2000,
+    .engine_power = 150,
     .max_acceleration = 8,
     .max_braking_deceleration = 10,
-    .wheel_radius = 0.5,
-    .drive_wheels = .{ 1, 3 },
-    .steer_wheels = .{ 0, 2 },
     .max_steering_angle = 0.5,
     .lateral_stiffness = 1000,
     .friction_coefficient = 1.0,

@@ -23,12 +23,13 @@ const W = math.W;
 const SceneEntity = struct {
     position: Vector3,
     scale: Vector3 = .{ 1, 1, 1 },
-    rotation: Vector3,
+    rotation: Vector3 = .{ 0, 0, 0 },
     color: Color = .{ 1, 1, 1, 1 },
     model_id: ModelId = .Cube,
     has_collider: bool = true,
     is_dynamic: bool = false,
     children: []SceneEntity = &.{},
+    car_spec_name: ?[]const u8 = null,
 };
 
 const Scene = struct {
@@ -47,8 +48,13 @@ const Scene = struct {
                 @panic("Failed to read scene file");
             defer allocator.free(scene_slice);
 
-            scene = std.zon.parse.fromSliceAlloc(Scene, allocator, scene_slice, null, .{}) catch
+            var diagnostics: std.zon.parse.Diagnostics = .{};
+            defer diagnostics.deinit(allocator);
+
+            scene = std.zon.parse.fromSliceAlloc(Scene, allocator, scene_slice, &diagnostics, .{}) catch {
+                std.log.err("Errors in scene .zon file:\n{f}", .{diagnostics});
                 @panic("Failed to parse scene .zon file");
+            };
         } else |_| {
             @panic("Failed to open scene file");
         }
@@ -61,6 +67,7 @@ pub fn load(state: *State) void {
     defer std.zon.parse.free(state.allocator, scene);
 
     for (scene.items) |item| {
+        const entity_index = state.entities.items.len;
         const entity = state.entities.addOne(state.allocator) catch @panic("Failed to add entity");
         entity.* = .{
             .transform = .{
@@ -72,7 +79,10 @@ pub fn load(state: *State) void {
             .is_dynamic = item.is_dynamic,
             .color = item.color,
             .model_id = item.model_id,
-            .children = state.allocator.alloc(Entity, item.children.len) catch @panic("Failed to allocate child entities"),
+            .children = state.allocator.alloc(Entity, item.children.len) catch
+                @panic("Failed to allocate child entities"),
+            .car_spec_name = if (item.car_spec_name) |name| state.allocator.dupe(u8, name) catch
+                @panic("OOM") else null,
         };
 
         for (item.children, 0..) |child, i| {
@@ -87,6 +97,22 @@ pub fn load(state: *State) void {
                 .color = child.color,
                 .model_id = child.model_id,
             };
+        }
+
+        if (item.car_spec_name) |car_spec_name| {
+            car.init(state, entity, car_spec_name);
+
+            if (state.car_index == null) {
+                state.car_index = entity_index;
+            }
+        }
+    }
+}
+
+pub fn reload(state: *State) void {
+    for (state.entities.items) |*entity| {
+        if (entity.car_spec_name) |car_spec_name| {
+            car.init(state, entity, car_spec_name);
         }
     }
 }
@@ -131,6 +157,10 @@ pub fn initBox3D(state: *State) void {
                     state.world_id,
                 );
             }
+        }
+
+        if (entity.car_spec != null) {
+            car.initPhysics(entity);
         }
     }
 }

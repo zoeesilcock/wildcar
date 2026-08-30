@@ -126,6 +126,7 @@ pub const State = struct {
     camera: renderer.Camera,
     entities: std.ArrayList(Entity),
     world_id: c.b3WorldId = undefined,
+    car_index: ?usize = null,
 
     time_of_day: f32 = 0.4,
     light_direction: Vector3 = .{ 0, 1, 0 }, // Direction to light.
@@ -218,18 +219,31 @@ const Input = struct {
 
 pub const Entity = struct {
     transform: Transform = .{},
-    color: Color = .{ 0.9, 0.3, 0.2, 1 },
+    color: Color = .{ 1, 1, 1, 1 },
     model_id: ModelId = .Cube,
     body_id: c.b3BodyId = undefined,
     has_collider: bool = true,
     is_dynamic: bool = false,
     children: []Entity = &.{},
+
+    car_spec_name: ?[]const u8 = null,
+    car_spec: ?*car.Spec = null,
     car_state: ?car.State = null,
 
     pub fn deinit(self: *Entity, allocator: std.mem.Allocator) void {
         if (self.children.len > 0) {
             allocator.free(self.children);
             self.children = &.{};
+        }
+
+        if (self.car_spec_name) |car_spec_name| {
+            allocator.free(car_spec_name);
+        }
+
+        if (self.car_spec) |car_spec| {
+            std.zon.parse.free(allocator, car_spec.*);
+            allocator.destroy(car_spec);
+            self.car_spec = null;
         }
     }
 };
@@ -278,12 +292,6 @@ pub export fn initFull3D(dependencies: GameLib.Dependencies.Full3D) GameLib.Game
     scene.load(state);
     scene.initBox3D(state);
 
-    car.init(
-        &state.entities.items[0],
-        .loadFromFile("assets/cars/default.zon", state.allocator, state.dependencies.io.*),
-        true,
-    );
-
     return state;
 }
 
@@ -292,7 +300,6 @@ pub export fn deinit(state_ptr: GameLib.GameStatePtr) void {
     renderer.deinit(&state.renderer, state.allocator);
     scene.unload(state);
     scene.deinitBox3D(state);
-    car.deinit(state.allocator);
 }
 
 pub export fn willReload(state_ptr: GameLib.GameStatePtr) void {
@@ -303,7 +310,6 @@ pub export fn willReload(state_ptr: GameLib.GameStatePtr) void {
         scene.unload(state);
     }
     scene.deinitBox3D(state);
-    car.deinit(state.allocator);
 }
 
 pub export fn reloaded(state_ptr: GameLib.GameStatePtr, imgui_context: ?*imgui.ImGuiContext) void {
@@ -328,14 +334,10 @@ pub export fn reloaded(state_ptr: GameLib.GameStatePtr, imgui_context: ?*imgui.I
 
     if (state.internal.reset_scene_on_reload) {
         scene.load(state);
+    } else {
+        scene.reload(state);
     }
     scene.initBox3D(state);
-
-    car.init(
-        &state.entities.items[0],
-        .loadFromFile("assets/cars/default.zon", state.allocator, state.dependencies.io.*),
-        state.internal.reset_scene_on_reload,
-    );
 }
 
 pub export fn processInput(state_ptr: GameLib.GameStatePtr) bool {
@@ -497,7 +499,11 @@ pub export fn tick(state_ptr: GameLib.GameStatePtr, time: u64, delta_time: u64) 
         const time_step: f32 = 1.0 / 60.0;
         const sub_step_count: u32 = 4;
 
-        car.updatePhysics(state, &state.entities.items[0]);
+        for (state.entities.items) |*entity| {
+            if (entity.car_spec != null) {
+                car.updatePhysics(state, entity);
+            }
+        }
 
         c.b3World_Step(state.world_id, time_step, sub_step_count);
     }

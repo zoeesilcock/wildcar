@@ -290,14 +290,6 @@ pub fn init(context: *RendererContext, allocator: std.mem.Allocator, io: std.Io)
     context.model_textures.put(.Cube, context.white_texture) catch @panic("OOM");
 
     context.importModel("assets/models/cone.glb", &.{.{ .id = .Cone }}, allocator, io);
-    context.importModel("assets/models/truck.glb", &.{
-        .{ .id = .Truck },
-        .{ .id = .TruckWheel, .index = 1 },
-    }, allocator, io);
-    context.importModel("assets/models/default.glb", &.{
-        .{ .id = .DefaultCar },
-        .{ .id = .DefaultWheel, .index = 1 },
-    }, allocator, io);
 }
 
 pub fn deinit(context: *RendererContext, allocator: std.mem.Allocator) void {
@@ -363,7 +355,7 @@ fn loadShader(
         format = sdl.SDL_GPU_SHADERFORMAT_DXIL;
         extension = ".dxil";
     } else {
-        std.log.info("Unrecognized shader format: {d}", .{format});
+        std.log.err("Unrecognized shader format: {d}", .{format});
         @panic("Unrecognized shader format");
     }
 
@@ -385,7 +377,7 @@ fn loadShader(
         };
         shader = sdl.SDL_CreateGPUShader(context.gpu_device, &shader_info);
     } else {
-        std.log.info("Failed to load shader file: {s}", .{relative_path});
+        std.log.err("Failed to load shader file: {s}", .{relative_path});
     }
 
     return shader;

@@ -90,14 +90,21 @@ pub fn draw(state: *State, context: *FrameContext, swapchain_texture: *sdl.SDL_G
         _ = imgui.c.ImGui_Begin("Car spec", null, imgui.c.ImGuiWindowFlags_NoFocusOnAppearing);
         defer imgui.c.ImGui_End();
 
-        flint.internal.inspectStruct(&car.car_spec, &.{ "wheel_count", "drive_wheels", "steer_wheels" }, false, &.{
-            .slider(f32, "suspension_damping_ratio", 0, 1),
-            .slider(f32, "friction_coefficient", 0.1, 2),
-        }, inputCustomTypes);
+        if (state.car_index) |car_index| {
+            const car_entity = &state.entities.items[car_index];
+            flint.internal.inspectStruct(car_entity.car_spec.?, &.{ "wheel_count", "drive_wheels", "steer_wheels" }, false, &.{
+                .slider(f32, "suspension_damping_ratio", 0, 1),
+                .slider(f32, "friction_coefficient", 0.1, 2),
+            }, inputCustomTypes);
 
-        imgui.c.ImGui_Dummy(imgui.c.ImVec2{ .x = 0, .y = 16 });
-        if (imgui.c.ImGui_ButtonEx("Save", imgui.c.ImVec2{ .x = -std.math.floatMin(f32), .y = 0 })) {
-            car.car_spec.saveToFile("assets/cars/default.zon", state.allocator, state.dependencies.io.*);
+            imgui.c.ImGui_Dummy(imgui.c.ImVec2{ .x = 0, .y = 16 });
+            if (imgui.c.ImGui_ButtonEx("Save", imgui.c.ImVec2{ .x = -std.math.floatMin(f32), .y = 0 })) {
+                car_entity.car_spec.?.saveToFile("assets/cars/default.zon", state.allocator, state.dependencies.io.*);
+            }
+
+            imgui.c.ImGui_Dummy(imgui.c.ImVec2{ .x = 0, .y = 16 });
+            imgui.c.ImGui_SeparatorText("Entity");
+            flint.internal.inspectStruct(car_entity, &.{}, false, &.{}, inputCustomTypes);
         }
     }
 
