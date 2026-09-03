@@ -53,7 +53,7 @@ float4 main(Input input) : SV_Target0
     //return float4(shadowUV, fragmentDepth, 1.0); // View distance from main light.
     //return float4(input.UV, 0, 1); // View the UVs.
 
-    float3 textureColor = TextureMap.Sample(TextureSampler, input.UV);
+    float3 textureColor = TextureMap.Sample(TextureSampler, input.UV).rgb;
     //return float4(textureColor, 1); // View only texture color.
 
     float3 finalColor = textureColor.rgb * Color.rgb * (AmbientColor + LightColor * brightness * visibility);
