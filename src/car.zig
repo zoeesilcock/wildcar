@@ -73,11 +73,14 @@ pub const Spec = struct {
                 @panic("Failed to read car spec file");
             defer allocator.free(spec_slice);
 
-            var diagnostics: std.zon.parse.Diagnostics = .{};
-            defer diagnostics.deinit(allocator);
-
-            spec.* = std.zon.parse.fromSliceAlloc(Spec, allocator, spec_slice, &diagnostics, .{}) catch {
-                std.log.err("Errors in car spec .zon file:\n{f}", .{diagnostics});
+            var diagnostics: std.zon.parse.Diagnostics = undefined;
+            spec.* = std.zon.parse.fromSlice(Spec, .{
+                .gpa = allocator,
+                .arena = allocator,
+                .source = spec_slice,
+                .diagnostics = &diagnostics,
+            }) catch {
+                std.log.err("Errors in car spec .zon file:\n{f}", .{diagnostics.fmt(path)});
                 @panic("Failed to parse car spec .zon file");
             };
         } else |_| {

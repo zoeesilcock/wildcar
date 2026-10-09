@@ -241,7 +241,6 @@ pub const Entity = struct {
         }
 
         if (self.car_spec) |car_spec| {
-            std.zon.parse.free(allocator, car_spec.*);
             allocator.destroy(car_spec);
             self.car_spec = null;
         }

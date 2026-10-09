@@ -48,11 +48,14 @@ const Scene = struct {
                 @panic("Failed to read scene file");
             defer allocator.free(scene_slice);
 
-            var diagnostics: std.zon.parse.Diagnostics = .{};
-            defer diagnostics.deinit(allocator);
-
-            scene = std.zon.parse.fromSliceAlloc(Scene, allocator, scene_slice, &diagnostics, .{}) catch {
-                std.log.err("Errors in scene .zon file:\n{f}", .{diagnostics});
+            var diagnostics: std.zon.parse.Diagnostics = undefined;
+            scene = std.zon.parse.fromSlice(Scene, .{
+                .gpa = allocator,
+                .arena = allocator,
+                .source = scene_slice,
+                .diagnostics = &diagnostics,
+            }) catch {
+                std.log.err("Errors in scene .zon file:\n{f}", .{diagnostics.fmt(path)});
                 @panic("Failed to parse scene .zon file");
             };
         } else |_| {
@@ -64,7 +67,6 @@ const Scene = struct {
 
 pub fn load(state: *State) void {
     const scene: Scene = .loadFromFile("assets/scene.zon", state.allocator, state.dependencies.io.*);
-    defer std.zon.parse.free(state.allocator, scene);
 
     for (scene.items) |item| {
         const entity_index = state.entities.items.len;
