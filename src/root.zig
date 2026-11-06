@@ -21,7 +21,6 @@ pub const std_options: std.Options = .{
 
 // Types.
 const GameLib = flint.GameLib;
-const FPSWindow = flint.internal.FPSWindow;
 const ModelId = renderer.ModelId;
 const Vector2 = math.Vector2;
 const Vector3 = math.Vector3;
@@ -375,7 +374,7 @@ pub export fn processInput(state_ptr: GameLib.GameStatePtr) bool {
                 },
                 sdl.SDLK_F1 => {
                     if (INTERNAL) {
-                        state.dependencies.internal.fps_window.cycleMode();
+                        state.dependencies.internal.frame_timings_window.cycleDisplayMode();
                     }
                 },
                 sdl.SDLK_F2 => {

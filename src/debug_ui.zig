@@ -52,13 +52,8 @@ pub fn draw(state: *State, context: *FrameContext, swapchain_texture: *sdl.SDL_G
         null,
     );
 
-    state.dependencies.internal.fps_window.position =
-        if (state.internal.inspect_car_spec)
-            .{ .x = 150, .y = -5 }
-        else
-            .{ .x = 5, .y = 5 };
-    state.dependencies.internal.fps_window.draw();
     state.dependencies.internal.output.draw();
+    state.dependencies.internal.frame_timings_window.draw();
     state.dependencies.internal.memory_usage_window.draw();
 
     if (state.internal.inspect_game_state) {

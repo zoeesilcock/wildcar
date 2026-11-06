@@ -15,7 +15,7 @@ This project was made possible by [Flint](https://github.com/zoeesilcock/flint) 
 ## Integrated editor
 
 ### Controls
-* F1: Cycle between FPS display modes (none, number, or number and graph).
+* F1: Cycle between FPS display modes (none, average, average and lows, average lows and graphs, or maximized).
 * F2: Toggle memory usage.
 * F3: Cycle through camera modes (orbit or free).
     * Orbit
