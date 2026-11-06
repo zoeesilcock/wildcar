@@ -304,7 +304,7 @@ pub export fn willReload(state_ptr: GameLib.GameStatePtr) void {
     const state: *State = @ptrCast(@alignCast(state_ptr));
     renderer.deinit(&state.renderer, state.allocator);
 
-    if (state.internal.reset_scene_on_reload) {
+    if (INTERNAL and state.internal.reset_scene_on_reload) {
         scene.unload(state);
     }
     scene.deinitBox3D(state);
@@ -326,11 +326,11 @@ pub export fn reloaded(state_ptr: GameLib.GameStatePtr, imgui_context: ?*imgui.I
         state.dependencies.io.*,
     );
 
-    if (state.internal.reset_camera_on_reload) {
+    if (INTERNAL and state.internal.reset_camera_on_reload) {
         state.camera = .init(getAspectRatio());
     }
 
-    if (state.internal.reset_scene_on_reload) {
+    if (INTERNAL and state.internal.reset_scene_on_reload) {
         scene.load(state);
     } else {
         scene.reload(state);
