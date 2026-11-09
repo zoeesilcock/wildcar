@@ -578,10 +578,6 @@ pub export fn tick(state_ptr: GameLib.GameStatePtr, time: u64, delta_time: u64) 
             }
         }
     }
-
-    if (INTERNAL) {
-        state.dependencies.internal.fps_window.addFrameTime(sdl.SDL_GetPerformanceCounter());
-    }
 }
 
 pub export fn draw(state_ptr: GameLib.GameStatePtr) void {
